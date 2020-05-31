@@ -6,6 +6,7 @@
 
 #include <rapidxml/rapidxml.hpp>
 
+#include <algorithm>
 #include <cstring>
 #include <iostream>
 #include <fstream>
@@ -34,38 +35,35 @@ public:
 class Function {
 
 public:
-	explicit Function(const std::string& name) {
-		std::cout << "reading file " << name << std::endl;
+	explicit Function(const std::filesystem::path& path) {
+		std::cout << "reading file " << path.filename();
 
 		// open the file
-		const static std::filesystem::path dir = std::filesystem::current_path() / "opengl-refpages" / "gl4";
-		std::filesystem::path path = dir / std::filesystem::path(name + ".xml");
 		std::ifstream file(path.c_str(), std::ios::binary);
-
-		// allocate the file buffer contents
-		file.seekg(std::ios::end);
-		size_t bytes = file.tellg();
-		file.seekg(std::ios::beg);
-
-		char* buf = new char[bytes + 1];
-		file.read(buf, bytes);
-		buf[bytes] = 0;
+		std::string fileContents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+		std::cout << ": " << fileContents.size() << " byte(s)" << std::endl;
+		char* buf = &fileContents[0];
 
 		// create the XML document
 		rapidxml::xml_document<> doc;
 		doc.parse<0>(buf);
-		delete[] buf;
 
 		// parse the function
 		Parse_(doc);
 	}
 
+	const std::string& GetName() const {
+		return _name;
+	}
+
 	const std::string& GetPurpose() const {
 		return _purpose;
 	}
+
 	const std::vector<Prototype>& GetPrototypes() const {
 		return _prototypes;
 	}
+
 	const std::unordered_map<std::string, std::string>& GetParameters() const {
 		return _parameters;
 	}
@@ -144,6 +142,7 @@ private:
 
 	}
 
+	std::string _name;
 	std::string _purpose;
 	std::vector<Prototype> _prototypes;
 	std::unordered_map<std::string, std::string> _parameters;
@@ -153,12 +152,16 @@ private:
 std::vector<Function> getFunctions(const std::filesystem::path& dir) {
 	std::vector<Function> functions;
 
-	for (const auto& file : std::filesystem::directory_iterator(dir)) {
-		std::string path = file.path().filename().string();
-		if (path.size() > 2 && path[0] == 'g' && path[1] == 'l' && path[2] != '_') {
-			functions.emplace_back(path.substr(0, path.size() - 4));
+	for (const auto& path : std::filesystem::directory_iterator(dir)) {
+		std::string file = path.path().filename();
+		if (file.size() > 2 && file[0] == 'g' && file[1] == 'l' && file[2] != '_') {
+			functions.emplace_back(path.path());
 		}
 	}
+
+	std::sort(functions.begin(), functions.end(), [](const Function& a, const Function& b) {
+		return a.GetName() < b.GetName();
+	});
 
 	return functions;
 }
