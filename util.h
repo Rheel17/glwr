@@ -6,6 +6,7 @@
 
 #include <string>
 #include <sstream>
+#include <vector>
 
 std::string trimr(const std::string& str) {
 	size_t length = str.size();
@@ -35,6 +36,48 @@ std::string rmln(const std::string& str) {
 	}
 
 	return ss.str();
+}
+
+std::vector<std::string> split(const std::string& str, unsigned int width) {
+	if (str.size() <= width) {
+		return std::vector<std::string>{ str };
+	}
+
+	std::vector<std::string> lines;
+	std::istringstream ss(str);
+
+	unsigned int currentWidth = 0;
+	std::stringstream currentLine;
+	std::string word;
+
+	const auto finishLine = [&]() {
+		lines.push_back(currentLine.str());
+		currentLine = std::stringstream();
+		currentWidth = 0;
+	};
+
+	while (std::getline(ss, word, ' ')) {
+		if (currentWidth == 0) {
+			currentLine << word;
+			currentWidth += word.size();
+			continue;
+		}
+
+		if (currentWidth + word.size() + 1 > width) {
+			finishLine();
+		} else {
+			currentLine << ' ';
+		}
+
+		currentLine << word;
+		currentWidth += word.size() + 1;
+	}
+
+	if (currentWidth > 0) {
+		finishLine();
+	}
+
+	return lines;
 }
 
 #endif

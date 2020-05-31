@@ -10,7 +10,6 @@
 #include <cstring>
 #include <iostream>
 #include <fstream>
-#include <vector>
 #include <unordered_map>
 #include <filesystem>
 
@@ -165,7 +164,13 @@ std::vector<Function> getFunctions(const std::filesystem::path& dir) {
 
 void createComment(std::vector<std::string>& lines, const Function& function, const Prototype& prototype) {
 	lines.emplace_back("///");
-	lines.emplace_back("/// \\brief " + function.GetPurpose());
+	lines.emplace_back("/// \\brief");
+
+	auto purpose = split(function.GetPurpose(), 76);
+	for (const std::string& line : purpose) {
+		lines.push_back("/// " + line);
+	}
+
 	lines.emplace_back("///");
 }
 
