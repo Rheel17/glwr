@@ -275,7 +275,6 @@ int main(int argc, char* argv[]) {
 	auto header = createHeader(functions);
 
 	const char* output = argv[1];
-	std::cout << "generating header file at " << output << std::endl;
 	std::ofstream file(output);
 
 	for (const auto& line : header) {
