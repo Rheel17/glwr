@@ -36,12 +36,9 @@ class Function {
 
 public:
 	explicit Function(const std::filesystem::path& path) {
-		std::cout << "reading file " << path.filename();
-
 		// open the file
 		std::ifstream file(path.c_str(), std::ios::binary);
 		std::string fileContents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-		std::cout << ": " << fileContents.size() << " byte(s)" << std::endl;
 		char* buf = &fileContents[0];
 
 		// create the XML document
@@ -173,8 +170,8 @@ void createComment(std::vector<std::string>& lines, const Function& function, co
 std::vector<std::string> createHeader(const std::vector<Function>& functions) {
 	std::vector<std::string> lines;
 
-	lines.emplace_back("#ifndef OPENGL_OPENGL_H_");
-	lines.emplace_back("#define OPENGL_OPENGL_H_");
+	lines.emplace_back("#ifndef OPENGL_GLWR_H_");
+	lines.emplace_back("#define OPENGL_GLWR_H_");
 	lines.emplace_back();
 	lines.emplace_back("#include <GL/glew.h>");
 	lines.emplace_back();
@@ -269,16 +266,18 @@ std::vector<std::string> createHeader(const std::vector<Function>& functions) {
 	return lines;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
+	if (argc <= 1) {
+		return -1;
+	}
+
 	auto functions = getFunctions(std::filesystem::current_path() / "opengl-refpages" / "gl4");
 	auto header = createHeader(functions);
 
-	const char *output = "opengl.h";
-	if (argc > 1) {
-		output = argv[1];
-	}
-
+	const char* output = argv[1];
+	std::cout << "generating header file at " << output << std::endl;
 	std::ofstream file(output);
+
 	for (const auto& line : header) {
 		file << line << '\n';
 	}
