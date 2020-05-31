@@ -1,15 +1,17 @@
 /*
  * Copyright (c) 2020 Levi van Rheenen
  */
-#include "download.h"
 #include "util.h"
 #include "gl1.h"
 
-#include <sstream>
-#include <fstream>
-#include <filesystem>
+#include <rapidxml/rapidxml.hpp>
 
-namespace fs = std::filesystem;
+#include <cstring>
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <unordered_map>
+#include <filesystem>
 
 class Parameter {
 
@@ -30,13 +32,32 @@ public:
 };
 
 class Function {
-	// static constexpr auto _base_url = "https://raw.githubusercontent.com/KhronosGroup/OpenGL-Refpages/master/gl4/";
-	static constexpr auto _base_url = "file:///D:/OpenGL-Refpages-master/gl4/";
-	static constexpr auto _extension = ".xml";
 
 public:
 	explicit Function(const std::string& name) {
-		Parse_(download(_base_url + name + _extension).AsXml());
+		std::cout << "reading file " << name << std::endl;
+
+		// open the file
+		const static std::filesystem::path dir = std::filesystem::current_path() / "opengl-refpages" / "gl4";
+		std::filesystem::path path = dir / std::filesystem::path(name + ".xml");
+		std::ifstream file(path.c_str(), std::ios::binary);
+
+		// allocate the file buffer contents
+		file.seekg(std::ios::end);
+		size_t bytes = file.tellg();
+		file.seekg(std::ios::beg);
+
+		char* buf = new char[bytes + 1];
+		file.read(buf, bytes);
+		buf[bytes] = 0;
+
+		// create the XML document
+		rapidxml::xml_document<> doc;
+		doc.parse<0>(buf);
+		delete[] buf;
+
+		// parse the function
+		Parse_(doc);
 	}
 
 	const std::string& GetPurpose() const {
@@ -50,8 +71,8 @@ public:
 	}
 
 private:
-	void Parse_(std::unique_ptr<XmlDocument> doc) {
-		auto refentry = doc->first_node("refentry");
+	void Parse_(const rapidxml::xml_document<>& doc) {
+		auto refentry = doc.first_node("refentry");
 
 		// read the purpose
 		auto refnamediv = refentry->first_node("refnamediv");
@@ -129,25 +150,10 @@ private:
 
 };
 
-template<typename Tree>
-std::vector<Function> getFunctions(const Tree& dir) {
+std::vector<Function> getFunctions(const std::filesystem::path& dir) {
 	std::vector<Function> functions;
 
-	for (const auto& file : dir) {
-		std::string path = file["path"];
-		if (path.size() > 2 && path[0] == 'g' && path[1] == 'l' && path[2] != '_') {
-			functions.emplace_back(path.substr(0, path.size() - 4));
-		}
-	}
-
-	return functions;
-}
-
-template<>
-std::vector<Function> getFunctions<fs::path>(const fs::path& dir) {
-	std::vector<Function> functions;
-
-	for (const auto& file : fs::directory_iterator(dir)) {
+	for (const auto& file : std::filesystem::directory_iterator(dir)) {
 		std::string path = file.path().filename().string();
 		if (path.size() > 2 && path[0] == 'g' && path[1] == 'l' && path[2] != '_') {
 			functions.emplace_back(path.substr(0, path.size() - 4));
@@ -261,25 +267,7 @@ std::vector<std::string> createHeader(const std::vector<Function>& functions) {
 }
 
 int main(int argc, char *argv[]) {
-	curl_global_init(CURL_GLOBAL_ALL);
-
-	// auto commits = download("https://api.github.com/repos/KhronosGroup/OpenGL-Refpages/commits").AsJson();
-	// auto lastCommit = commits[0]["sha"].get<std::string>();
-	//
-	// auto treeCommit = download("https://api.github.com/repos/KhronosGroup/OpenGL-Refpages/git/trees/" + lastCommit).AsJson();
-	// auto tree = treeCommit["tree"];
-	// std::string dirPath;
-	//
-	// for (const auto& file : tree) {
-	// 	if (file["path"].get<std::string>() == "gl4") {
-	// 		dirPath = file["url"];
-	// 		break;
-	// 	}
-	// }
-	//
-	// auto dir = download(dirPath).AsJson();
-	// auto dirTree = dir["tree"];
-	auto functions = getFunctions(/*dirTree*/ fs::path("D:\\OpenGL-Refpages-master\\gl4"));
+	auto functions = getFunctions(std::filesystem::current_path() / "opengl-refpages" / "gl4");
 	auto header = createHeader(functions);
 
 	const char *output = "opengl.h";
@@ -292,6 +280,5 @@ int main(int argc, char *argv[]) {
 		file << line << '\n';
 	}
 
-	curl_global_cleanup();
 	return 0;
 }
