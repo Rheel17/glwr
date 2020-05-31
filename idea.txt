@@ -1,6 +1,0 @@
-#undef glBindBuffer
-
-inline void glBindBuffer(GLenum target, GLuint buffer) {
-    GLEW_GET_FUN(__glewBindBuffer)(target, buffer);
-}
-
