@@ -72,7 +72,7 @@ private:
 		// read the purpose
 		auto refnamediv = refentry->first_node("refnamediv");
 		auto refpurpose = refnamediv->first_node("refpurpose");
-		_purpose = refpurpose->value();
+		_purpose = rmln(refpurpose->value());
 
 		// read the prototype(s)
 		auto refsynopsisdiv = refentry->first_node("refsynopsisdiv");
@@ -164,7 +164,9 @@ std::vector<Function> getFunctions(const std::filesystem::path& dir) {
 }
 
 void createComment(std::vector<std::string>& lines, const Function& function, const Prototype& prototype) {
-
+	lines.emplace_back("///");
+	lines.emplace_back("/// \\brief " + function.GetPurpose());
+	lines.emplace_back("///");
 }
 
 std::vector<std::string> createHeader(const std::vector<Function>& functions) {

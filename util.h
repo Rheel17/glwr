@@ -1,10 +1,11 @@
 /*
  * Copyright (c) 2020 Levi van Rheenen
  */
-#ifndef MGL_UTIL_H
-#define MGL_UTIL_H
+#ifndef GLWR_UTIL_H
+#define GLWR_UTIL_H
 
 #include <string>
+#include <sstream>
 
 std::string trimr(const std::string& str) {
 	size_t length = str.size();
@@ -12,6 +13,28 @@ std::string trimr(const std::string& str) {
 		length--;
 	}
 	return std::string(str.c_str(), length);
+}
+
+std::string rmln(const std::string& str) {
+	bool wasLastSpace = false;
+	std::stringstream ss;
+
+	for (char c : str) {
+		if (isspace(c)) {
+			if (wasLastSpace) {
+				continue;
+			}
+
+			ss << ' ';
+			wasLastSpace = true;
+			continue;
+		}
+
+		ss << c;
+		wasLastSpace = false;
+	}
+
+	return ss.str();
 }
 
 #endif
