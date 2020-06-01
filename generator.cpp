@@ -5,6 +5,7 @@
 #include "gl1.h"
 
 #include <rapidxml/rapidxml.hpp>
+#include <rapidxml/rapidxml_print.hpp>
 
 #include <algorithm>
 #include <cstring>
@@ -12,6 +13,7 @@
 #include <fstream>
 #include <unordered_map>
 #include <filesystem>
+#include <regex>
 
 class Parameter {
 
@@ -32,6 +34,11 @@ public:
 };
 
 class Function {
+	const static inline std::regex _begin_tag_space = std::regex(R"((?!\w|\d)\s+<)");
+	const static inline std::regex _end_tag_space = std::regex(R"(>\s+(?!\w|\d))");
+	const static inline std::regex _remove_tag = std::regex(R"(</?(?:para)>)");
+	const static inline std::regex _constant = std::regex(R"(<constant>(.*?)</constant>)");
+	const static inline std::regex _function = std::regex(R"(<function>(.*?)</function>)");
 
 public:
 	explicit Function(const std::filesystem::path& path) {
@@ -132,11 +139,9 @@ private:
 			 para != nullptr;
 			 para = para->next_sibling("para")) {
 
-			paragraphs.push_back(rmln(para->value()));
+			paragraphs.push_back(ParseParagraph_(para));
 		}
 
-
-		auto term = varlistentry->first_node("term");
 		for (auto term = varlistentry->first_node("term");
 		     term != nullptr;
 		     term = term->next_sibling("term")) {
@@ -145,10 +150,26 @@ private:
 				 parameter != nullptr;
 				 parameter = parameter->next_sibling("parameter")) {
 
+
 				const char* param = parameter->value();
 				_parameters[param] = paragraphs;
 			}
 		}
+	}
+
+	template<typename Node>
+	std::string ParseParagraph_(Node para) {
+		std::string contents;
+		rapidxml::print(std::back_inserter(contents), *para);
+
+		contents = rmln(contents);
+		contents = std::regex_replace(contents, _begin_tag_space, "<");
+		contents = std::regex_replace(contents, _end_tag_space, ">");
+		contents = std::regex_replace(contents, _remove_tag, "");
+		contents = std::regex_replace(contents, _constant, "$1");
+		contents = std::regex_replace(contents, _function, "$1");
+
+		return contents;
 	}
 
 	std::string _name;
