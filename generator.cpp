@@ -60,7 +60,7 @@ public:
 		return _prototypes;
 	}
 
-	const std::unordered_map<std::string, std::string>& GetParameters() const {
+	const std::unordered_map<std::string, std::vector<std::string>>& GetParameters() const {
 		return _parameters;
 	}
 
@@ -85,7 +85,7 @@ private:
 		}
 
 		// read the parameter(s)
-		auto variablelist = refentry->first_node("variablelist");
+		auto variablelist = findChildNodeChildNode(refentry, "refsect1", "variablelist");
 
 		if (variablelist) {
 			for (auto varlistentry = variablelist->first_node("varlistentry");
@@ -125,23 +125,36 @@ private:
 
 	template<typename Node>
 	void ParseParameter_(Node varlistentry) {
-		auto term = varlistentry->first_node("term");
-		std::vector<std::string> parameters;
+		std::vector<std::string> paragraphs;
 
-		for (auto parameter = term->first_node("parameter");
-			 parameter != nullptr;
-			 parameter = parameter->next_sibling("parameter")) {
+		auto listitem = varlistentry->first_node("listitem");
+		for (auto para = listitem->first_node("para");
+			 para != nullptr;
+			 para = para->next_sibling("para")) {
 
-			parameters.push_back(parameter->value());
+			paragraphs.push_back(rmln(para->value()));
 		}
 
 
+		auto term = varlistentry->first_node("term");
+		for (auto term = varlistentry->first_node("term");
+		     term != nullptr;
+		     term = term->next_sibling("term")) {
+
+			for (auto parameter = term->first_node("parameter");
+				 parameter != nullptr;
+				 parameter = parameter->next_sibling("parameter")) {
+
+				const char* param = parameter->value();
+				_parameters[param] = paragraphs;
+			}
+		}
 	}
 
 	std::string _name;
 	std::string _purpose;
 	std::vector<Prototype> _prototypes;
-	std::unordered_map<std::string, std::string> _parameters;
+	std::unordered_map<std::string, std::vector<std::string>> _parameters;
 
 };
 
@@ -169,6 +182,31 @@ void createComment(std::vector<std::string>& lines, const Function& function, co
 	auto purpose = split(function.GetPurpose(), 76);
 	for (const std::string& line : purpose) {
 		lines.push_back("/// " + line);
+	}
+
+	const auto& functionParameters = function.GetParameters();
+	for (const auto& parameter : prototype.parameters) {
+		lines.emplace_back("///");
+		lines.push_back("/// \\param " + parameter.name);
+
+		bool first = true;
+		auto iter = functionParameters.find(parameter.name);
+		if (iter != functionParameters.end()) {
+			for (const auto& paragraph : functionParameters.find(parameter.name)->second) {
+				if (!first) {
+					lines.emplace_back("///");
+				}
+
+				auto par = split(paragraph, 76);
+				for (const std::string& line : par) {
+					lines.push_back("/// " + line);
+				}
+
+				first = false;
+			}
+		} else {
+			std::cout << "Could not find parameter description for " << prototype.name << "@" << parameter.name << std::endl;
+		}
 	}
 
 	lines.emplace_back("///");

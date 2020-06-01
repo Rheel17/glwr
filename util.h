@@ -80,4 +80,16 @@ std::vector<std::string> split(const std::string& str, unsigned int width) {
 	return lines;
 }
 
+template<typename Node>
+Node findChildNodeChildNode(Node node, const char* child, const char* childChild) {
+	for (auto n = node->first_node(child); n != nullptr; n = n->next_sibling(child)) {
+		auto cld = n->first_node(childChild);
+		if (cld) {
+			return cld;
+		}
+	}
+
+	return nullptr;
+}
+
 #endif
