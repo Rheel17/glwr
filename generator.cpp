@@ -4,7 +4,6 @@
 #include "util.h"
 #include "gl1.h"
 
-#include <rapidxml/rapidxml.hpp>
 #include <rapidxml/rapidxml_print.hpp>
 
 #include <algorithm>
@@ -34,14 +33,18 @@ public:
 };
 
 class Function {
-	const static inline std::regex _begin_tag_space = std::regex(R"((?!\w|\d)\s+<)");
+	const static inline std::regex _begin_tag_space = std::regex(R"((\w|\d)\s+<)");
 	const static inline std::regex _end_tag_space = std::regex(R"(>\s+(?!\w|\d))");
-	const static inline std::regex _remove_tag = std::regex(R"(</?(?:para)>)");
+	const static inline std::regex _para_begin = std::regex(R"(<para>\s*)");
+	const static inline std::regex _para_end = std::regex(R"(\s*</para>)");
 	const static inline std::regex _constant = std::regex(R"(<constant>(.*?)</constant>)");
 	const static inline std::regex _function = std::regex(R"(<function>(.*?)</function>)");
 
 public:
 	explicit Function(const std::filesystem::path& path) {
+		_name = path.filename().string();
+		_name = _name.substr(0, _name.size() - 4);
+
 		// open the file
 		std::ifstream file(path.c_str(), std::ios::binary);
 		std::string fileContents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
@@ -134,6 +137,10 @@ private:
 	void ParseParameter_(Node varlistentry) {
 		std::vector<std::string> paragraphs;
 
+		if (_name == "glHint") {
+			std::cout << "";
+		}
+
 		auto listitem = varlistentry->first_node("listitem");
 		for (auto para = listitem->first_node("para");
 			 para != nullptr;
@@ -163,9 +170,10 @@ private:
 		rapidxml::print(std::back_inserter(contents), *para);
 
 		contents = rmln(contents);
-		contents = std::regex_replace(contents, _begin_tag_space, "<");
+		// contents = std::regex_replace(contents, _begin_tag_space, "$1<");
 		contents = std::regex_replace(contents, _end_tag_space, ">");
-		contents = std::regex_replace(contents, _remove_tag, "");
+		contents = std::regex_replace(contents, _para_begin, "");
+		contents = std::regex_replace(contents, _para_end, "");
 		contents = std::regex_replace(contents, _constant, "$1");
 		contents = std::regex_replace(contents, _function, "$1");
 
@@ -183,7 +191,7 @@ std::vector<Function> getFunctions(const std::filesystem::path& dir) {
 	std::vector<Function> functions;
 
 	for (const auto& path : std::filesystem::directory_iterator(dir)) {
-		std::string file = path.path().filename();
+		std::string file = path.path().filename().string();
 		if (file.size() > 2 && file[0] == 'g' && file[1] == 'l' && file[2] != '_') {
 			functions.emplace_back(path.path());
 		}
