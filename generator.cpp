@@ -11,6 +11,7 @@
 #include <iostream>
 #include <fstream>
 #include <unordered_map>
+#include <unordered_set>
 #include <filesystem>
 #include <regex>
 
@@ -33,12 +34,13 @@ public:
 };
 
 class Function {
-	const static inline std::regex _begin_tag_space = std::regex(R"((\w|\d)\s+<)");
+	const static inline std::regex _begin_tag_space = std::regex(R"(((?:.|^)[^\w\d\.,:;])\s<)");
 	const static inline std::regex _end_tag_space = std::regex(R"(>\s+(?!\w|\d))");
 	const static inline std::regex _para_begin = std::regex(R"(<para>\s*)");
 	const static inline std::regex _para_end = std::regex(R"(\s*</para>)");
 	const static inline std::regex _constant = std::regex(R"(<constant>(.*?)</constant>)");
 	const static inline std::regex _function = std::regex(R"(<function>(.*?)</function>)");
+	const static inline std::regex _parameter = std::regex(R"(<parameter>(.*?)</parameter>)");
 
 public:
 	explicit Function(const std::filesystem::path& path) {
@@ -137,10 +139,6 @@ private:
 	void ParseParameter_(Node varlistentry) {
 		std::vector<std::string> paragraphs;
 
-		if (_name == "glHint") {
-			std::cout << "";
-		}
-
 		auto listitem = varlistentry->first_node("listitem");
 		for (auto para = listitem->first_node("para");
 			 para != nullptr;
@@ -170,12 +168,13 @@ private:
 		rapidxml::print(std::back_inserter(contents), *para);
 
 		contents = rmln(contents);
-		// contents = std::regex_replace(contents, _begin_tag_space, "$1<");
+		contents = std::regex_replace(contents, _begin_tag_space, "$1<");
 		contents = std::regex_replace(contents, _end_tag_space, ">");
 		contents = std::regex_replace(contents, _para_begin, "");
 		contents = std::regex_replace(contents, _para_end, "");
-		contents = std::regex_replace(contents, _constant, "$1");
-		contents = std::regex_replace(contents, _function, "$1");
+		contents = std::regex_replace(contents, _constant, "<i><code>$1</code></i>");
+		contents = std::regex_replace(contents, _function, "<b><code>$1</code></b>");
+		contents = std::regex_replace(contents, _parameter, "<code>$1</code>");
 
 		return contents;
 	}
@@ -204,6 +203,16 @@ std::vector<Function> getFunctions(const std::filesystem::path& dir) {
 	return functions;
 }
 
+struct vector_hash {
+	size_t operator()(const std::vector<std::string>& vec) const {
+		if (vec.empty()) {
+			return 0;
+		}
+
+		return std::hash<std::string>()(vec[0]);
+	}
+};
+
 void createComment(std::vector<std::string>& lines, const Function& function, const Prototype& prototype) {
 	lines.emplace_back("///");
 	lines.emplace_back("/// \\brief");
@@ -213,17 +222,51 @@ void createComment(std::vector<std::string>& lines, const Function& function, co
 		lines.push_back("/// " + line);
 	}
 
-	const auto& functionParameters = function.GetParameters();
-	for (const auto& parameter : prototype.parameters) {
-		lines.emplace_back("///");
-		lines.push_back("/// \\param " + parameter.name);
+	auto functionParameters = function.GetParameters();
+	std::unordered_map<std::vector<std::string>, std::vector<std::string>, vector_hash> combinedParagraphs;
+	std::unordered_set<std::string> seenParameters;
 
+	for (const auto& parameter : prototype.parameters) {
+		combinedParagraphs[functionParameters[parameter.name]].push_back(parameter.name);
+	}
+
+	for (const auto& parameter : prototype.parameters) {
+		if (seenParameters.find(parameter.name) != seenParameters.end()) {
+			continue;
+		}
+
+		lines.emplace_back("///");
+
+		std::stringstream ss;
+		ss << "\\param";
 		bool first = true;
+
+		for (const auto& pname : combinedParagraphs[functionParameters[parameter.name]]) {
+			if (pname.size() > 68) {
+				std::cout << "parameter name probably too long: " << prototype.name << "@" << parameter.name;
+			}
+
+			if (!first) {
+				ss << ',';
+			}
+
+			ss << ' ' << pname;
+			first = false;
+			seenParameters.insert(pname);
+		}
+
+		auto pnamePar = split(ss.str(), 76);
+		for (const auto& line : pnamePar) {
+			lines.push_back("/// " + line);
+		}
+
 		auto iter = functionParameters.find(parameter.name);
 		if (iter != functionParameters.end()) {
-			for (const auto& paragraph : functionParameters.find(parameter.name)->second) {
-				if (!first) {
-					lines.emplace_back("///");
+			const auto& paragraphs = iter->second;
+
+			for (const auto& paragraph : paragraphs) {
+				if (paragraphs.size() > 1) {
+					lines.emplace_back("/// <p>");
 				}
 
 				auto par = split(paragraph, 76);
@@ -231,7 +274,9 @@ void createComment(std::vector<std::string>& lines, const Function& function, co
 					lines.push_back("/// " + line);
 				}
 
-				first = false;
+				if (paragraphs.size() > 1) {
+					lines.emplace_back("/// </p>");
+				}
 			}
 		} else {
 			std::cout << "Could not find parameter description for " << prototype.name << "@" << parameter.name << std::endl;
