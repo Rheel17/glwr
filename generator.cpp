@@ -228,30 +228,6 @@ private:
 		return "<p>\n" + contents + "\n</p>\n";
 	}
 
-	/**
-	 * \brief
-	 *
-	 * \details
-	 *
-	 * <table style="border-spacing:0px; border:1px solid;">
-	 * 	<tr>
-	 * 		<th style="border:1px solid;padding:5px; margin:0px;">Person</th>
-	 * 		<th style="border:1px solid;padding:5px; margin:0px;">Age</th>
-	 * 	</tr>
-	 * 	<tr>
-	 * 		<td style="border:1px solid;padding:5px; margin:0px;">Hi there</td>
-	 * 		<td style="border:1px solid;padding:5px; margin:0px;">Bye!</td>
-	 * 	</tr>
-	 * 	<tr">
-	 * 		<td style="border:1px solid;padding:5px; margin:0px;">Hello</td>
-	 * 		<td style="border:1px solid;padding:5px; margin:0px;">Cya</td>
-	 * 	</tr>
-	 * </table>
-	 *
-	 * @tparam Node
-	 * @param informaltable
-	 * @return
-	 */
 	template<typename Node>
 	std::string ParseInformalTable_(Node informaltable) {
 		std::stringstream ss;
