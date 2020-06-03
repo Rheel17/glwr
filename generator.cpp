@@ -7,13 +7,13 @@
 #include <rapidxml/rapidxml_print.hpp>
 
 #include <algorithm>
-#include <cstring>
 #include <iostream>
 #include <fstream>
 #include <unordered_map>
 #include <unordered_set>
 #include <filesystem>
 #include <regex>
+#include <functional>
 
 class Parameter {
 
@@ -76,6 +76,10 @@ public:
 		return _parameters;
 	}
 
+	const std::vector<std::string>& GetDescription() const {
+		return _description;
+	}
+
 private:
 	void Parse_(const rapidxml::xml_document<>& doc) {
 		auto refentry = doc.first_node("refentry");
@@ -97,7 +101,8 @@ private:
 		}
 
 		// read the parameter(s)
-		auto variablelist = findChildNodeChildNode(refentry, "refsect1", "variablelist");
+		auto refsect1 = findChildNodeWithAttribute(refentry, "refsect1", "xml:id", "parameters");
+		auto variablelist = refsect1 == nullptr ? nullptr : refsect1->first_node("variablelist");
 
 		if (variablelist) {
 			for (auto varlistentry = variablelist->first_node("varlistentry");
@@ -105,6 +110,39 @@ private:
 				 varlistentry = varlistentry->next_sibling("varlistentry")) {
 
 				ParseParameter_(varlistentry);
+			}
+		}
+
+		// read the description
+		using NodeType = decltype(refsect1);
+
+		const static std::unordered_set<std::string> invalidTags = { "title" };
+		const static std::unordered_map<std::string, std::function<std::string(NodeType, const std::string&)>> validTags = {
+				{ "para",           [this](auto n, auto name) { return ParseParagraph_(n); } },
+				{ "informaltable",  [this](auto n, auto name) { return ParseInformalTable_(n); } },
+				{ "table",          [this](auto n, auto name) { std::cout << "unimplemented tag: table at " << name << std::endl; return std::string(); } },
+				{ "programlisting", [this](auto n, auto name) { std::cout << "unimplemented tag: programlisting at " << name << std::endl; return std::string(); } },
+				{ "xi:include",     [this](auto n, auto name) { std::cout << "unimplemented tag: xi:include at " << name << std::endl; return std::string(); } },
+				{ "itemizedlist",   [this](auto n, auto name) { std::cout << "unimplemented tag: itemizedlist at " << name << std::endl; return std::string(); } },
+				{ "glosslist",      [this](auto n, auto name) { std::cout << "unimplemented tag: glosslist at " << name << std::endl; return std::string(); } },
+				{ "variablelist",   [this](auto n, auto name) { std::cout << "unimplemented tag: variablelist at " << name << std::endl; return std::string(); } }
+		};
+
+		refsect1 = findChildNodeWithAttribute(refentry, "refsect1", "xml:id", "description");
+		if (refsect1) {
+			for (auto node = refsect1->first_node(); node != nullptr; node = node->next_sibling()) {
+				if (invalidTags.find(node->name()) != invalidTags.end()) {
+					continue;
+				}
+
+				auto iter = validTags.find(node->name());
+				if (iter == validTags.end()) {
+					std::cout << "Unknown description tag: " << node->name() << " at " << _name << std::endl;
+					continue;
+				}
+
+				const auto& function = iter->second;
+				_description.push_back(function(node, _name));
 			}
 		}
 	}
@@ -176,13 +214,63 @@ private:
 		contents = std::regex_replace(contents, _function, "<b><code>$1</code></b>");
 		contents = std::regex_replace(contents, _parameter, "<code>$1</code>");
 
-		return contents;
+		return "<p>\n" + contents + "\n</p>\n";
+	}
+
+	/**
+	 * \brief
+	 *
+	 * \details
+	 *
+	 * <table style="border-spacing:0px; border:1px solid;">
+	 * 	<tr>
+	 * 		<th style="border:1px solid;padding:5px; margin:0px;">Person</th>
+	 * 		<th style="border:1px solid;padding:5px; margin:0px;">Age</th>
+	 * 	</tr>
+	 * 	<tr>
+	 * 		<td style="border:1px solid;padding:5px; margin:0px;">Hi there</td>
+	 * 		<td style="border:1px solid;padding:5px; margin:0px;">Bye!</td>
+	 * 	</tr>
+	 * 	<tr">
+	 * 		<td style="border:1px solid;padding:5px; margin:0px;">Hello</td>
+	 * 		<td style="border:1px solid;padding:5px; margin:0px;">Cya</td>
+	 * 	</tr>
+	 * </table>
+	 *
+	 * @tparam Node
+	 * @param informaltable
+	 * @return
+	 */
+	template<typename Node>
+	std::string ParseInformalTable_(Node informaltable) {
+		std::stringstream ss;
+		ss << "<table>\n";
+
+		// header
+		auto thead = informaltable->first_node("thead");
+		if (thead != nullptr) {
+			for (auto row = thead->first_node("row"); row != nullptr; row = row->next_sibling("row")) {
+				ss << "\t<tr>\n";
+
+				for (auto entry = row->first_node("entry"); entry != nullptr; entry = entry->next_sibling("entry")) {
+					ss << "\t\t<th>\n";
+					ss << "\t\t</th>\n";
+				}
+
+				ss << "\t</tr>\n";
+			}
+		}
+
+
+		ss << "</table>\n";
+		return ss.str();
 	}
 
 	std::string _name;
 	std::string _purpose;
 	std::vector<Prototype> _prototypes;
 	std::unordered_map<std::string, std::vector<std::string>> _parameters;
+	std::vector<std::string> _description;
 
 };
 
@@ -222,16 +310,39 @@ void createComment(std::vector<std::string>& lines, const Function& function, co
 		lines.push_back("/// " + line);
 	}
 
-	auto functionParameters = function.GetParameters();
+	const auto& description = function.GetDescription();
+	if (!description.empty()) {
+		lines.emplace_back("///");
+		lines.emplace_back("/// \\details");
+
+		for (const auto& part : description) {
+			auto partLines = split(part, 76);
+			for (const auto& line : partLines) {
+				lines.push_back("/// " + line);
+			}
+		}
+	}
+
+	const auto& functionParameters = function.GetParameters();
 	std::unordered_map<std::vector<std::string>, std::vector<std::string>, vector_hash> combinedParagraphs;
 	std::unordered_set<std::string> seenParameters;
 
 	for (const auto& parameter : prototype.parameters) {
-		combinedParagraphs[functionParameters[parameter.name]].push_back(parameter.name);
+		auto iter = functionParameters.find(parameter.name);
+		if (iter != functionParameters.end()) {
+			combinedParagraphs[iter->second].push_back(parameter.name);
+		} else {
+			std::cout << "Could not find parameter description for " << prototype.name << "@" << parameter.name << std::endl;
+		}
 	}
 
 	for (const auto& parameter : prototype.parameters) {
 		if (seenParameters.find(parameter.name) != seenParameters.end()) {
+			continue;
+		}
+
+		auto iter = functionParameters.find(parameter.name);
+		if (iter == functionParameters.end()) {
 			continue;
 		}
 
@@ -241,7 +352,7 @@ void createComment(std::vector<std::string>& lines, const Function& function, co
 		ss << "\\param";
 		bool first = true;
 
-		for (const auto& pname : combinedParagraphs[functionParameters[parameter.name]]) {
+		for (const auto& pname : combinedParagraphs[iter->second]) {
 			if (pname.size() > 68) {
 				std::cout << "parameter name probably too long: " << prototype.name << "@" << parameter.name;
 			}
@@ -260,30 +371,96 @@ void createComment(std::vector<std::string>& lines, const Function& function, co
 			lines.push_back("/// " + line);
 		}
 
-		auto iter = functionParameters.find(parameter.name);
-		if (iter != functionParameters.end()) {
-			const auto& paragraphs = iter->second;
-
-			for (const auto& paragraph : paragraphs) {
-				if (paragraphs.size() > 1) {
-					lines.emplace_back("/// <p>");
-				}
-
-				auto par = split(paragraph, 76);
-				for (const std::string& line : par) {
-					lines.push_back("/// " + line);
-				}
-
-				if (paragraphs.size() > 1) {
-					lines.emplace_back("/// </p>");
-				}
+		for (const auto& paragraph : iter->second) {
+			auto par = split(paragraph, 76);
+			for (const std::string& line : par) {
+				lines.push_back("/// " + line);
 			}
-		} else {
-			std::cout << "Could not find parameter description for " << prototype.name << "@" << parameter.name << std::endl;
 		}
 	}
 
 	lines.emplace_back("///");
+}
+
+std::vector<std::string> createFunctionHeader(const Function& function) {
+	std::vector<std::string> lines;
+
+	lines.emplace_back("#ifndef OPENGL_GLWR_H_");
+	lines.emplace_back("#error \"Do not include glwr function headers directly, include GL/glwr.h");
+	lines.emplace_back("#endif");
+	lines.emplace_back();
+
+	for (const auto& prototype : function.GetPrototypes()) {
+		if (!prototype.in_gl1) {
+			lines.push_back("#undef " + prototype.name);
+		}
+	}
+
+	for (const auto& prototype : function.GetPrototypes()) {
+		if (prototype.in_gl1) {
+			lines.emplace_back();
+			createComment(lines, function, prototype);
+
+			std::stringstream ss;
+			ss << prototype.type << " " << prototype.name << "(";
+
+			bool first = true;
+			for (const auto& parameter : prototype.parameters) {
+				if (!first) {
+					ss << ", ";
+				}
+
+				ss << parameter.type << " " << parameter.name;
+				first = false;
+			}
+
+			ss << ");";
+			lines.push_back(ss.str());
+		}
+	}
+
+	for (const auto& prototype : function.GetPrototypes()) {
+		if (gl1.find(prototype.name) == gl1.end()) {
+			lines.emplace_back();
+			createComment(lines, function, prototype);
+
+			std::stringstream ss;
+			ss << "OPENGL_INLINE " << prototype.type << " " << prototype.name << "(";
+
+			bool first = true;
+			for (const auto& parameter : prototype.parameters) {
+				if (!first) {
+					ss << ", ";
+				}
+
+				ss << parameter.type << " " << parameter.name;
+				first = false;
+			}
+
+			ss << ") {";
+			lines.push_back(ss.str());
+
+			ss = std::stringstream();
+			ss << "\tGLEW_GET_FUN(__glew" << prototype.name.substr(2) << ")(";
+
+			first = true;
+			for (const auto& parameter : prototype.parameters) {
+				if (!first) {
+					ss << ", ";
+				}
+
+				ss << parameter.name;
+				first = false;
+			}
+
+			ss << ");";
+
+			lines.push_back(ss.str());
+			lines.emplace_back("}");
+		}
+	}
+
+	return lines;
 }
 
 std::vector<std::string> createHeader(const std::vector<Function>& functions) {
@@ -304,79 +481,7 @@ std::vector<std::string> createHeader(const std::vector<Function>& functions) {
 	lines.emplace_back();
 
 	for (const auto& function : functions) {
-		for (const auto& prototype : function.GetPrototypes()) {
-			if (!prototype.in_gl1) {
-				lines.push_back("#undef " + prototype.name);
-			}
-		}
-	}
-
-	for (const auto& function : functions) {
-		for (const auto& prototype : function.GetPrototypes()) {
-			if (prototype.in_gl1) {
-				lines.emplace_back();
-				createComment(lines, function, prototype);
-
-				std::stringstream ss;
-				ss << prototype.type << " " << prototype.name << "(";
-
-				bool first = true;
-				for (const auto& parameter : prototype.parameters) {
-					if (!first) {
-						ss << ", ";
-					}
-
-					ss << parameter.type << " " << parameter.name;
-					first = false;
-				}
-
-				ss << ");";
-				lines.push_back(ss.str());
-			}
-		}
-	}
-
-	for (const auto& function : functions) {
-		for (const auto& prototype : function.GetPrototypes()) {
-			if (gl1.find(prototype.name) == gl1.end()) {
-				lines.emplace_back();
-				createComment(lines, function, prototype);
-
-				std::stringstream ss;
-				ss << "OPENGL_INLINE " << prototype.type << " " << prototype.name << "(";
-
-				bool first = true;
-				for (const auto& parameter : prototype.parameters) {
-					if (!first) {
-						ss << ", ";
-					}
-
-					ss << parameter.type << " " << parameter.name;
-					first = false;
-				}
-
-				ss << ") {";
-				lines.push_back(ss.str());
-
-				ss = std::stringstream();
-				ss << "\tGLEW_GET_FUN(__glew" << prototype.name.substr(2) << ")(";
-
-				first = true;
-				for (const auto& parameter : prototype.parameters) {
-					if (!first) {
-						ss << ", ";
-					}
-
-					ss << parameter.name;
-					first = false;
-				}
-
-				ss << ");";
-
-				lines.push_back(ss.str());
-				lines.emplace_back("}");
-			}
-		}
+		lines.push_back("#include \"func/" + function.GetName() + ".h\"");
 	}
 
 	lines.emplace_back();
@@ -393,11 +498,20 @@ int main(int argc, char* argv[]) {
 	auto functions = getFunctions(std::filesystem::current_path() / "opengl-refpages" / "gl4");
 	auto header = createHeader(functions);
 
-	const char* output = argv[1];
-	std::ofstream file(output);
+	std::string output = std::string(argv[1]);
+	std::ofstream file(output + "/glwr.h");
 
 	for (const auto& line : header) {
 		file << line << '\n';
+	}
+
+	for (const auto& function : functions) {
+		std::ofstream functionFile(output + "/func/" + function.GetName() + ".h");
+		auto functionHeader = createFunctionHeader(function);
+
+		for (const auto& line : functionHeader) {
+			functionFile << line << '\n';
+		}
 	}
 
 	return 0;

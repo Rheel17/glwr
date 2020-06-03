@@ -4,6 +4,7 @@
 #ifndef GLWR_UTIL_H
 #define GLWR_UTIL_H
 
+#include <cstring>
 #include <string>
 #include <sstream>
 #include <vector>
@@ -38,7 +39,7 @@ std::string rmln(const std::string& str) {
 	return ss.str();
 }
 
-std::vector<std::string> split(const std::string& str, unsigned int width) {
+std::vector<std::string> splitLine(const std::string& str, unsigned int width) {
 	if (str.size() <= width) {
 		return std::vector<std::string>{ str };
 	}
@@ -80,12 +81,25 @@ std::vector<std::string> split(const std::string& str, unsigned int width) {
 	return lines;
 }
 
+std::vector<std::string> split(const std::string& str, unsigned int width) {
+	std::vector<std::string> lines;
+	std::istringstream ss(str);
+	std::string line;
+
+	while (std::getline(ss, line, '\n')) {
+		auto lineLines = splitLine(line, width);
+		lines.insert(lines.end(), lineLines.begin(), lineLines.end());
+	}
+
+	return lines;
+}
+
 template<typename Node>
-Node findChildNodeChildNode(Node node, const char* child, const char* childChild) {
+Node findChildNodeWithAttribute(Node node, const char* child, const char* attribute, const char* value) {
 	for (auto n = node->first_node(child); n != nullptr; n = n->next_sibling(child)) {
-		auto cld = n->first_node(childChild);
-		if (cld) {
-			return cld;
+		auto attr = n->first_attribute(attribute);
+		if (attr && strcmp(attr->value(), value) == 0) {
+			return n;
 		}
 	}
 
