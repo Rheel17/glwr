@@ -409,7 +409,7 @@ void createComment(std::vector<std::string>& lines, const Function& function, co
 std::vector<std::string> createFunctionHeader(const Function& function) {
 	std::vector<std::string> lines;
 
-	lines.emplace_back("#ifndef OPENGL_GLWR_H_");
+	lines.emplace_back("#ifdef OPENGL_GLWR_H_");
 	lines.emplace_back("#error \"Do not include glwr function headers directly, include GL/glwr.h");
 	lines.emplace_back("#endif");
 	lines.emplace_back();
