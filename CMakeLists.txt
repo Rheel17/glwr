@@ -12,7 +12,7 @@ ExternalProject_Add(khronos-opengl-refpages
 		BUILD_COMMAND ""
 		INSTALL_COMMAND "")
 
-add_executable(glwr-gen generator.cpp util.h gl1.h)
+add_executable(glwr-gen generator.cpp util.h gl1.h mathconv.h)
 add_dependencies(glwr-gen khronos-opengl-refpages)
 target_link_libraries(glwr-gen PRIVATE curl)
 

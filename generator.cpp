@@ -3,6 +3,7 @@
  */
 #include "util.h"
 #include "gl1.h"
+#include "mathconv.h"
 
 #include <rapidxml/rapidxml_print.hpp>
 
@@ -12,7 +13,6 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <filesystem>
-#include <regex>
 #include <functional>
 
 class Parameter {
@@ -214,6 +214,8 @@ private:
 		contents = std::regex_replace(contents, _function, "<b><code>$1</code></b>");
 		contents = std::regex_replace(contents, _parameter, "<code>$1</code>");
 		contents = std::regex_replace(contents, _emphasis, "$1");
+
+		mathReplace(contents);
 		contents = trim(contents);
 	}
 
