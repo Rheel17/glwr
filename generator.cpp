@@ -37,10 +37,13 @@ class Function {
 	const static inline std::regex _begin_tag_space = std::regex(R"(((?:.|^)[^\w\d\.,:;])\s<)");
 	const static inline std::regex _end_tag_space = std::regex(R"(>\s+(?!\w|\d))");
 	const static inline std::regex _para_begin = std::regex(R"(<para>\s*)");
-	const static inline std::regex _para_end = std::regex(R"(\s*</para>)");
+	const static inline std::regex _para_end = std::regex(R"(\s*</para>)");;
+	const static inline std::regex _entry_begin = std::regex(R"(<entry>\s*)");
+	const static inline std::regex _entry_end = std::regex(R"(\s*</entry>)");
 	const static inline std::regex _constant = std::regex(R"(<constant>(.*?)</constant>)");
 	const static inline std::regex _function = std::regex(R"(<function>(.*?)</function>)");
 	const static inline std::regex _parameter = std::regex(R"(<parameter>(.*?)</parameter>)");
+	const static inline std::regex _emphasis = std::regex(R"(<emphasis .*?>(.*?)</emphasis>)");
 
 public:
 	explicit Function(const std::filesystem::path& path) {
@@ -200,19 +203,27 @@ private:
 		}
 	}
 
+	static void ReplaceTags_(std::string& contents) {
+		contents = std::regex_replace(contents, _begin_tag_space, "$1<");
+		contents = std::regex_replace(contents, _end_tag_space, ">");
+		contents = std::regex_replace(contents, _para_begin, "");
+		contents = std::regex_replace(contents, _para_end, "");
+		contents = std::regex_replace(contents, _entry_begin, "");
+		contents = std::regex_replace(contents, _entry_end, "");
+		contents = std::regex_replace(contents, _constant, "<i><code>$1</code></i>");
+		contents = std::regex_replace(contents, _function, "<b><code>$1</code></b>");
+		contents = std::regex_replace(contents, _parameter, "<code>$1</code>");
+		contents = std::regex_replace(contents, _emphasis, "$1");
+		contents = trim(contents);
+	}
+
 	template<typename Node>
 	std::string ParseParagraph_(Node para) {
 		std::string contents;
 		rapidxml::print(std::back_inserter(contents), *para);
 
 		contents = rmln(contents);
-		contents = std::regex_replace(contents, _begin_tag_space, "$1<");
-		contents = std::regex_replace(contents, _end_tag_space, ">");
-		contents = std::regex_replace(contents, _para_begin, "");
-		contents = std::regex_replace(contents, _para_end, "");
-		contents = std::regex_replace(contents, _constant, "<i><code>$1</code></i>");
-		contents = std::regex_replace(contents, _function, "<b><code>$1</code></b>");
-		contents = std::regex_replace(contents, _parameter, "<code>$1</code>");
+		ReplaceTags_(contents);
 
 		return "<p>\n" + contents + "\n</p>\n";
 	}
@@ -244,23 +255,58 @@ private:
 	template<typename Node>
 	std::string ParseInformalTable_(Node informaltable) {
 		std::stringstream ss;
-		ss << "<table>\n";
+		ss << "<table style=\"border:1px solid; border-spacing:0px;\">\n";
+
+		auto tgroup = informaltable->first_node("tgroup");
+		if (tgroup == nullptr) {
+			std::cout << "informaltable without tgroup: " << _name << std::endl;
+			return "";
+		}
 
 		// header
-		auto thead = informaltable->first_node("thead");
+		auto thead = tgroup->first_node("thead");
 		if (thead != nullptr) {
 			for (auto row = thead->first_node("row"); row != nullptr; row = row->next_sibling("row")) {
-				ss << "\t<tr>\n";
+				ss << "<tr>\n";
 
 				for (auto entry = row->first_node("entry"); entry != nullptr; entry = entry->next_sibling("entry")) {
-					ss << "\t\t<th>\n";
-					ss << "\t\t</th>\n";
+					ss << "<th style=\"border:1px solid; padding:5px; margin:0px;\"> ";
+
+					std::string contents;
+					rapidxml::print(std::back_inserter(contents), *entry);
+
+					contents = rmln(contents);
+					ReplaceTags_(contents);
+
+					ss << contents;
+					ss << " </th>\n";
 				}
 
-				ss << "\t</tr>\n";
+				ss << "</tr>\n";
 			}
 		}
 
+		auto tbody = tgroup->first_node("tbody");
+		if (tbody != nullptr) {
+			for (auto row = tbody->first_node("row"); row != nullptr; row = row->next_sibling("row")) {
+				ss << "<tr>\n";
+
+				for (auto entry = row->first_node("entry"); entry != nullptr; entry = entry->next_sibling("entry")) {
+					ss << "<td style=\"border:1px solid; padding:5px; margin:0px;\"> ";
+
+					std::string contents;
+					rapidxml::print(std::back_inserter(contents), *entry);
+
+					contents = rmln(contents);
+					ReplaceTags_(contents);
+
+					ss << contents;
+					ss << " </th>\n";
+				}
+
+				ss << "</tr>\n";
+			}
+		}
 
 		ss << "</table>\n";
 		return ss.str();

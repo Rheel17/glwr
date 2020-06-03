@@ -9,12 +9,24 @@
 #include <sstream>
 #include <vector>
 
+std::string triml(const std::string& str) {
+	size_t i = 0;
+	while (i < str.length() && isspace(str[i])) {
+		i++;
+	}
+	return str.substr(i);
+}
+
 std::string trimr(const std::string& str) {
 	size_t length = str.size();
 	while (length > 0 && isspace(str[length - 1])) {
 		length--;
 	}
 	return std::string(str.c_str(), length);
+}
+
+std::string trim(const std::string& str) {
+	return triml(trimr(str));
 }
 
 std::string rmln(const std::string& str) {
