@@ -4,6 +4,7 @@
 #include "util.h"
 #include "gl1.h"
 #include "mathconv.h"
+#include "Refpage.h"
 
 #include <rapidxml/rapidxml_print.hpp>
 
@@ -52,15 +53,19 @@ public:
 
 		// open the file
 		std::ifstream file(path.c_str(), std::ios::binary);
-		std::string fileContents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-		char* buf = &fileContents[0];
 
-		// create the XML document
-		rapidxml::xml_document<> doc;
-		doc.parse<0>(buf);
+		// read the file
+		Refpage refpage(file, _name);
 
-		// parse the function
-		Parse_(doc);
+		// std::string fileContents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+		// char* buf = &fileContents[0];
+		//
+		// // create the XML document
+		// rapidxml::xml_document<> doc;
+		// doc.parse<0>(buf);
+		//
+		// // parse the function
+		// Parse_(doc);
 	}
 
 	const std::string& GetName() const {
@@ -520,23 +525,23 @@ int main(int argc, char* argv[]) {
 	}
 
 	auto functions = getFunctions(std::filesystem::current_path() / "opengl-refpages" / "gl4");
-	auto header = createHeader(functions);
-
-	std::string output = std::string(argv[1]);
-	std::ofstream file(output + "/glwr.h");
-
-	for (const auto& line : header) {
-		file << line << '\n';
-	}
-
-	for (const auto& function : functions) {
-		std::ofstream functionFile(output + "/func/" + function.GetName() + ".h");
-		auto functionHeader = createFunctionHeader(function);
-
-		for (const auto& line : functionHeader) {
-			functionFile << line << '\n';
-		}
-	}
+	// auto header = createHeader(functions);
+	//
+	// std::string output = std::string(argv[1]);
+	// std::ofstream file(output + "/glwr.h");
+	//
+	// for (const auto& line : header) {
+	// 	file << line << '\n';
+	// }
+	//
+	// for (const auto& function : functions) {
+	// 	std::ofstream functionFile(output + "/func/" + function.GetName() + ".h");
+	// 	auto functionHeader = createFunctionHeader(function);
+	//
+	// 	for (const auto& line : functionHeader) {
+	// 		functionFile << line << '\n';
+	// 	}
+	// }
 
 	return 0;
 }
