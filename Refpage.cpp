@@ -278,6 +278,12 @@ std::string Refpage::ParseAbstractTextNode_(Node node, const std::string_view& n
 		return ParsePara_(node);
 	} else if (name == "xi:include") {
 		return ParseInclude_(node);
+	} else if (name == "parameter") {
+		return "<code>" + std::string(node->value()) + "</code>";
+	} else if (name == "constant") {
+		return "<code>" + std::string(node->value()) + "</code>";
+	} else if (name == "function") {
+		return "<b><code>" + std::string(node->value()) + "</code></b>";
 	} else {
 		std::cout << "@" << _name << " Unknown node: <text element>." << name << std::endl;
 		return "";
@@ -341,7 +347,6 @@ std::string Refpage::ParsePara_(Node para) {
 		result.erase(begin.begin(), begin.end());
 	}
 
-	std::cout << result << std::endl;
 	return result;
 }
 
