@@ -6,6 +6,8 @@
 
 #include <iostream>
 #include <vector>
+#include <optional>
+#include <filesystem>
 
 #include "XmlHelper.h"
 
@@ -23,7 +25,7 @@ public:
 	};
 
 	struct impl_refnamediv {
-		std::string refdescriptor;
+		std::optional<std::string> refdescriptor;
 		std::vector<std::string> refnames;
 		std::string refpurpose;
 	};
@@ -47,11 +49,61 @@ public:
 		std::vector<impl_funcprototype> funcprototypes;
 	};
 
-	struct impl_refsect1_parameters {
+	struct impl_abstract_text {
+		std::vector<std::string> elements;
+	};
+
+	struct impl_listitem {
+		impl_abstract_text contents;
+	};
+
+	struct impl_varlistentry {
+		std::vector<std::string> terms;
+		std::vector<impl_listitem> listitems;
+	};
+
+	struct impl_refsect_parameters {
+		std::optional<std::string> impl_for_function;
+		std::vector<impl_varlistentry> varlistentries;
+	};
+
+	struct impl_refsect_parameters_2 : public impl_refsect_parameters {};
+
+	struct impl_refsect_description {
+		std::optional<std::string> impl_for_function;
+	};
+
+	struct impl_refsect_description_2 : public impl_refsect_description {};
+
+	struct impl_refsect_examples {
 
 	};
 
-	explicit Refpage(std::istream& input, std::string name);
+	struct impl_refsect_notes {
+
+	};
+
+	struct impl_refsect_errors {
+
+	};
+
+	struct impl_refsect_associatedgets {
+
+	};
+
+	struct impl_refsect_versions {
+
+	};
+
+	struct impl_refsect_seealso {
+
+	};
+
+	struct impl_refsect_copyright {
+
+	};
+
+	Refpage(std::filesystem::path dir, std::istream& input, std::string name);
 
 private:
 	void Set_(const char* node, std::string& str, const char* value);
@@ -84,12 +136,35 @@ private:
 	void ParseRefsect1Seealso_(Node refsect1);
 	void ParseRefsect1Copyright_(Node refsect1);
 
+	void ParseAbstractText_(Node parent, impl_abstract_text& text);
+	std::string ParseAbstractTextNode_(Node node, const std::string_view& name);
+	std::string ParseInclude_(Node include);
+	std::string ParsePara_(Node para);
+	std::string ParseInformaltable(Node informaltable);
+
+	void ParseVariablelist_(Node variablelist, impl_refsect_parameters& parameters);
+	void ParseVarlistentry_(Node varlistentry, impl_varlistentry& value);
+	void ParseTerm_(Node term, impl_varlistentry& varlistentry);
+
+	std::filesystem::path _dir;
 	std::string _name;
 
-	std::vector<impl_copyright> _copyright;
+	std::vector<impl_copyright> _copyrights;
 	impl_refmeta _refmeta;
 	impl_refnamediv _refnamediv;
 	impl_refsynopsisdiv _refsynopsisdiv;
+
+	std::optional<impl_refsect_parameters> _refsect_parameters;
+	std::optional<impl_refsect_parameters_2> _refsect_parameters_2;
+	std::optional<impl_refsect_description> _refsect_description;
+	std::optional<impl_refsect_description_2> _refsect_description_2;
+	std::optional<impl_refsect_examples> _refsect_examples;
+	std::optional<impl_refsect_notes> _refsect_notes;
+	std::optional<impl_refsect_errors> _refsect_errors;
+	std::optional<impl_refsect_associatedgets> _refsect_associatedgets;
+	std::optional<impl_refsect_versions> _refsect_versions;
+	std::optional<impl_refsect_seealso> _refsect_seealso;
+	std::optional<impl_refsect_copyright> _refsect_copyright;
 
 };
 

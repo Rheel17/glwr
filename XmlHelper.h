@@ -23,7 +23,7 @@ public:
 		inline IteratorImpl operator++() {
 			// prefix
 			_n = _n->next_sibling();
-			return IteratorImpl(_n);
+			return *this;
 		}
 
 		inline bool operator!=(const IteratorImpl& iter) {
@@ -70,6 +70,15 @@ public:
 
 			if (node) {
 				name = node->name();
+			}
+		}
+
+		template<std::size_t I>
+		const auto& get() const {
+			if constexpr(I == 0) {
+				return node;
+			} else if constexpr (I == 1) {
+				return name;
 			}
 		}
 
@@ -125,12 +134,6 @@ private:
 
 namespace std {
 
-template<typename T>
-struct tuple_size;
-
-template<size_t I, typename T>
-struct tuple_element;
-
 template<>
 struct tuple_size<NodeNameIterator::NodeName> :
 		std::integral_constant<size_t, 2> { };
@@ -145,14 +148,6 @@ struct tuple_element<1, NodeNameIterator::NodeName> {
 	using type = std::string_view;
 };
 
-template<std::size_t I>
-const auto& get(const NodeNameIterator::NodeName& nn) {
-	if constexpr(I == 0) {
-		return nn.node;
-	} else if constexpr (I == 1) {
-		return nn.name;
-	}
-}
 
 }
 

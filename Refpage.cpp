@@ -3,7 +3,12 @@
  */
 #include "Refpage.h"
 
-Refpage::Refpage(std::istream& input, std::string name) :
+#include <fstream>
+
+#include <ctre.hpp>
+
+Refpage::Refpage(std::filesystem::path dir, std::istream& input, std::string name) :
+		_dir(std::move(dir)),
 		_name(std::move(name)) {
 
 	// read the input
@@ -63,7 +68,7 @@ void Refpage::ParseInfo_(Node info) {
 	for (Node n : NodeIterator(info)) {
 		std::string name = n->name();
 		if (name == "copyright") {
-			impl_copyright& value = _copyright.emplace_back();
+			impl_copyright& value = _copyrights.emplace_back();
 			ParseCopyright_(n, value);
 		} else {
 			std::cout << "@" << _name << " Unknown node: info." << name << std::endl;
@@ -86,7 +91,8 @@ void Refpage::ParseRefmeta_(Node refmeta) {
 void Refpage::ParseRefnamediv_(Node refnamediv) {
 	for (const auto& [node, name] : NodeNameIterator(refnamediv)) {
 		if (name == "refdescriptor") {
-			Set_("refnamediv.refdescriptor", _refnamediv.refdescriptor, node->value());
+			auto& refdescriptor = _refnamediv.refdescriptor.emplace();
+			Set_("refnamediv.refdescriptor", refdescriptor, node->value());
 		} else if (name == "refname") {
 			_refnamediv.refnames.emplace_back(node->value());
 		} else if (name == "refpurpose") {
@@ -156,7 +162,7 @@ void Refpage::ParseCopyright_(Node copyright, impl_copyright& value) {
 	}
 }
 
-void Refpage::ParseFuncsynopsis_(Node funcsynopsis, Refpage::impl_refsynopsisdiv& value) {
+void Refpage::ParseFuncsynopsis_(Node funcsynopsis, impl_refsynopsisdiv& value) {
 	for (const auto& [node, name] : NodeNameIterator(funcsynopsis)) {
 		if (name == "funcprototype") {
 			auto& value2 = value.funcprototypes.emplace_back();
@@ -167,7 +173,7 @@ void Refpage::ParseFuncsynopsis_(Node funcsynopsis, Refpage::impl_refsynopsisdiv
 	}
 }
 
-void Refpage::ParseFuncprototype_(Node funcprototype, Refpage::impl_funcprototype& value) {
+void Refpage::ParseFuncprototype_(Node funcprototype, impl_funcprototype& value) {
 	for (const auto& [node, name] : NodeNameIterator(funcprototype)) {
 		if (name == "funcdef") {
 			ParseFuncdef_(node, value.funcdef);
@@ -180,7 +186,7 @@ void Refpage::ParseFuncprototype_(Node funcprototype, Refpage::impl_funcprototyp
 	}
 }
 
-void Refpage::ParseFuncdef_(Node funcdef, Refpage::impl_funcdef& value) {
+void Refpage::ParseFuncdef_(Node funcdef, impl_funcdef& value) {
 	for (const auto& [node, name] : NodeNameIterator(funcdef)) {
 		if (name == "") {
 			Set_("refsynopsisdiv.funcsynopsis.funcprototype.funcdef(value)", value.type, funcdef->value());
@@ -192,7 +198,7 @@ void Refpage::ParseFuncdef_(Node funcdef, Refpage::impl_funcdef& value) {
 	}
 }
 
-void Refpage::ParseParamdef_(Node paramdef, Refpage::impl_paramdef& value) {
+void Refpage::ParseParamdef_(Node paramdef, impl_paramdef& value) {
 	for (const auto& [node, name] : NodeNameIterator(paramdef)) {
 		if (name == "") {
 			Set_("refsynopsisdiv.funcsynopsis.funcprototype.paramdef(value)", value.type, paramdef->value());
@@ -205,7 +211,20 @@ void Refpage::ParseParamdef_(Node paramdef, Refpage::impl_paramdef& value) {
 }
 
 void Refpage::ParseRefsect1Parameters_(Node refsect1) {
+	auto& parameters = _refsect_parameters.emplace();
 
+	for (const auto& [node, name] : NodeNameIterator(refsect1)) {
+		if (name == "variablelist") {
+			ParseVariablelist_(node, parameters);
+		} else if (name == "title") {
+			Node function = node->first_node("function", 8, true);
+			if (function) {
+				parameters.impl_for_function.emplace(function->value());
+			}
+		} else {
+			std::cout << "@" << _name << " Unknown node: refsect1(parameters)." << name << std::endl;
+		}
+	}
 }
 
 void Refpage::ParseRefsect1Parameters2_(Node refsect1) {
@@ -246,4 +265,122 @@ void Refpage::ParseRefsect1Seealso_(Node refsect1) {
 
 void Refpage::ParseRefsect1Copyright_(Node refsect1) {
 
+}
+
+void Refpage::ParseAbstractText_(Node parent, impl_abstract_text& text) {
+	for (const auto& [node, name] : NodeNameIterator(parent)) {
+		text.elements.push_back(ParseAbstractTextNode_(node, name));
+	}
+}
+
+std::string Refpage::ParseAbstractTextNode_(Node node, const std::string_view& name) {
+	if (name == "para") {
+		return ParsePara_(node);
+	} else if (name == "xi:include") {
+		return ParseInclude_(node);
+	} else {
+		std::cout << "@" << _name << " Unknown node: <text element>." << name << std::endl;
+		return "";
+	}
+}
+
+std::string Refpage::ParseInclude_(Node include) {
+	auto attr = include->first_attribute("href");
+	if (!attr) {
+		std::cout << "@" << _name << " xi:include without href" << std::endl;
+		return "";
+	}
+
+	std::string filename = attr->value();
+	std::filesystem::path path = _dir / filename;
+	std::ifstream file(path.string());
+
+	std::string fileContents(
+			(std::istreambuf_iterator<char>(file)),
+			std::istreambuf_iterator<char>());
+	char* buf = &fileContents[0];
+
+	Document doc;
+	doc.parse<0>(buf);
+
+	Node node = doc.first_node();
+	return ParseAbstractTextNode_(node, node->name());
+}
+
+std::string Refpage::ParsePara_(Node para) {
+	constexpr ctll::fixed_string regex_whitespace = "\r\n\\s*";
+	constexpr ctll::fixed_string regex_spaces = "^( *).*?( *)$";
+
+	std::stringstream ss;
+
+	for (const auto& [node, name] : NodeNameIterator(para)) {
+		std::string value = node->value();
+
+		if (name == "") {
+			auto result = ctre::search<regex_whitespace>(value);
+			bool hasWhitespace = result;
+
+			while (hasWhitespace) {
+				auto iter = value.erase(result.get<0>().begin(), result.get<0>().end());
+				value.insert(iter, ' ');
+
+				result = ctre::search<regex_whitespace>(value);
+				hasWhitespace = result;
+			}
+
+			ss << value;
+		} else {
+			ss << ParseAbstractTextNode_(node, name);
+		}
+	}
+
+	std::string result = ss.str();
+
+	if (auto [found, begin, end] = ctre::match<regex_spaces>(result); found) {
+		result.erase(end.begin(), end.end());
+		result.erase(begin.begin(), begin.end());
+	}
+
+	std::cout << result << std::endl;
+	return result;
+}
+
+std::string Refpage::ParseInformaltable(Node informaltable) {
+	return std::string();
+}
+
+void Refpage::ParseVariablelist_(Node variablelist, impl_refsect_parameters& parameters) {
+	for (const auto& [node, name] : NodeNameIterator(variablelist)) {
+		if (name == "varlistentry") {
+			auto& varlistentry = parameters.varlistentries.emplace_back();
+			ParseVarlistentry_(node, varlistentry);
+		} else {
+			std::cout << "@" << _name << " Unknown node: refsect1(parameters).variablelist." << name << std::endl;
+		}
+	}
+}
+
+void Refpage::ParseVarlistentry_(Node varlistentry, impl_varlistentry& value) {
+	for (const auto& [node, name] : NodeNameIterator(varlistentry)) {
+		if (name == "term") {
+			ParseTerm_(node, value);
+		} else if (name == "listitem") {
+			auto& value2 = value.listitems.emplace_back();
+			ParseAbstractText_(node, value2.contents);
+		} else {
+			std::cout << "@" << _name << " Unknown node: refsect1(parameters).variablelist.varlistentry." << name << std::endl;
+		}
+	}
+}
+
+void Refpage::ParseTerm_(Node term, impl_varlistentry& varlistentry) {
+	for (const auto& [node, name] : NodeNameIterator(term)) {
+		if (name == "") {
+			continue; /* ignored */
+		} else if (name == "parameter") {
+			varlistentry.terms.emplace_back(node->value());
+		} else {
+			std::cout << "@" << _name << " Unknown node: refsect1(parameters).variablelist.varlistentry.term." << name << std::endl;
+		}
+	}
 }

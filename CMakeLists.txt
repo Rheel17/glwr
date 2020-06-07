@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.13)
 project(glwr)
 
-SET(CMAKE_CXX_STANDARD 17)
+SET(CMAKE_CXX_STANDARD 20)
 
 #include(ExternalProject)
 #ExternalProject_Add(khronos-opengl-refpages

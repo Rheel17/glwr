@@ -47,7 +47,7 @@ class Function {
 	const static inline std::regex _emphasis = std::regex(R"(<emphasis .*?>(.*?)</emphasis>)");
 
 public:
-	explicit Function(const std::filesystem::path& path) {
+	explicit Function(const std::filesystem::path& dir, const std::filesystem::path& path) {
 		_name = path.filename().string();
 		_name = _name.substr(0, _name.size() - 4);
 
@@ -55,7 +55,7 @@ public:
 		std::ifstream file(path.c_str(), std::ios::binary);
 
 		// read the file
-		Refpage refpage(file, _name);
+		Refpage refpage(dir, file, _name);
 
 		// std::string fileContents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 		// char* buf = &fileContents[0];
@@ -309,7 +309,7 @@ std::vector<Function> getFunctions(const std::filesystem::path& dir) {
 	for (const auto& path : std::filesystem::directory_iterator(dir)) {
 		std::string file = path.path().filename().string();
 		if (file.size() > 2 && file[0] == 'g' && file[1] == 'l' && file[2] != '_') {
-			functions.emplace_back(path.path());
+			functions.emplace_back(dir, path.path());
 		}
 	}
 
