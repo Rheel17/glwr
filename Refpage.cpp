@@ -34,6 +34,20 @@ void Refpage::Set_(const char* name, std::string& str, const char* value) {
 	std::cout << "@" << _name << " Duplicate value: " << name << std::endl;
 }
 
+Node Refpage::GetOnlyChild_(Node node, const std::string_view& name, std::string_view child) {
+	Node childNode = node->first_node();
+
+	if (childNode->next_sibling()) {
+		std::cout << "@" << _name << " node with multiple child nodes: " << name << std::endl;
+	} else if (std::string(childNode->name()) == child) {
+		return childNode;
+	} else {
+		std::cout << "@" << _name << " node with invalid child node: " << name << std::endl;
+	}
+
+	return nullptr;
+}
+
 void Refpage::Parse_(const Document& doc) {
 	auto refentry = doc.first_node("refentry");
 	ParseRefentry_(refentry);
@@ -279,15 +293,33 @@ std::string Refpage::ParseAbstractTextNode_(Node node, const std::string_view& n
 	} else if (name == "xi:include") {
 		return ParseInclude_(node);
 	} else if (name == "parameter") {
-		return "<code>" + std::string(node->value()) + "</code>";
+		return ParseValueNode_(node, name, "<code>", "</code>");
 	} else if (name == "constant") {
-		return "<code>" + std::string(node->value()) + "</code>";
+		return ParseValueNode_(node, name, "<code>", "</code>");
 	} else if (name == "function") {
-		return "<b><code>" + std::string(node->value()) + "</code></b>";
+		return ParseValueNode_(node, name, "<b><code>", "</code></b>");
+	} else if (name == "code") {
+		return ParseValueNode_(node, name, "<code>", "</code>");
+	} else if (name == "emphasis") {
+		return ParseEmphasis_(node);
+	} else if (name == "citerefentry") {
+		return ParseCiterefentry_(node);
+	} else if (name == "footnote") {
+		return ""; /* ignored for now */
+	} else if (name == "informaltable") {
+		return ParseInformaltable_(node);
 	} else {
-		std::cout << "@" << _name << " Unknown node: <text element>." << name << std::endl;
+		std::cout << "@" << _name << " Unknown node: " << name << std::endl;
 		return "";
 	}
+}
+
+std::string Refpage::ParseValueNode_(Node node, const std::string_view& name, const char* begin, const char* end) {
+	if (Node child = GetOnlyChild_(node, name, ""); child) {
+		return begin + std::string(node->value()) + end;
+	}
+
+	return "";
 }
 
 std::string Refpage::ParseInclude_(Node include) {
@@ -350,8 +382,85 @@ std::string Refpage::ParsePara_(Node para) {
 	return result;
 }
 
-std::string Refpage::ParseInformaltable(Node informaltable) {
-	return std::string();
+std::string Refpage::ParseEmphasis_(Node emphasis) {
+	std::string openTag;
+	std::string closeTag;
+
+	if (auto attr = emphasis->first_attribute("role"); attr) {
+		std::string role = attr->value();
+
+		if (role == "bold") {
+			openTag = "<b>";
+			closeTag = "</b>";
+		} else {
+			std::cout << "@" << _name << " Unknown emphasis role attribute: " << role << std::endl;
+		}
+	} else {
+		openTag = "<i>";
+		closeTag = "</i>";
+	}
+
+	return ParseValueNode_(emphasis, "emphasis", openTag.c_str(), closeTag.c_str());
+}
+
+std::string Refpage::ParseCiterefentry_(Node citerefentry) {
+	if (Node child = GetOnlyChild_(citerefentry, "citerefentry", "refentrytitle"); child) {
+		return ParseValueNode_(child, "refentrytitle", "<b>", "</b>");
+	}
+
+	return "";
+}
+
+std::string Refpage::ParseInformaltable_(Node informaltable) {
+	if (Node tgroup = GetOnlyChild_(informaltable, "informaltable", "tgroup"); tgroup) {
+		std::stringstream ss;
+		ss << "<table style=\"border:1px solid; border-spacing:0px;\">\n";
+
+		for (const auto& [node, name] : NodeNameIterator(tgroup)) {
+			if (name == "colspec") {
+				continue; /* ignored */
+			} else if (name == "thead" || name == "tbody") {
+				ParseInformaltableRows_(node, name, ss);
+			} else {
+				std::cout << "@" << _name << " Unknown node: informaltable.tgroup." << name << std::endl;
+			}
+		}
+
+		ss << "<table>\n";
+		return ss.str();
+	}
+
+	return "";
+}
+
+void Refpage::ParseInformaltableRows_(Node pNode, const std::string_view& pName, std::stringstream& ss) {
+	bool head = pName == "thead";
+
+	for (const auto& [node, name] : NodeNameIterator(pNode)) {
+		if (name == "row") {
+			ss << "<tr>\n";
+			ParseInformaltableRow_(node, head, ss);
+			ss << "</tr>\n";
+		} else {
+			std::cout << "@" << _name << " Unknown node: informaltable.tgroup." << pName << "." << name << std::endl;
+		}
+	}
+}
+
+void Refpage::ParseInformaltableRow_(Node row, bool head, std::stringstream& ss) {
+	for (const auto& [node, name] : NodeNameIterator(row)) {
+		if (name == "entry") {
+			ss << "<";
+			ss << (head ? "th" : "td");
+			ss << " style=\"border:1px solid; padding:5px; margin:0px;\">\n";
+			ss << ParsePara_(node);
+			ss << "</";
+			ss << (head ? "th" : "td");
+			ss << ">\n";
+		} else {
+			std::cout << "@" << _name << " Unknown row node: " << name << std::endl;
+		}
+	}
 }
 
 void Refpage::ParseVariablelist_(Node variablelist, impl_refsect_parameters& parameters) {

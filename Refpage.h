@@ -107,6 +107,7 @@ public:
 
 private:
 	void Set_(const char* node, std::string& str, const char* value);
+	Node GetOnlyChild_(Node node, const std::string_view& name, std::string_view child);
 
 	void Parse_(const Document& doc);
 	void ParseRefentry_(Node refentry);
@@ -138,9 +139,14 @@ private:
 
 	void ParseAbstractText_(Node parent, impl_abstract_text& text);
 	std::string ParseAbstractTextNode_(Node node, const std::string_view& name);
+	std::string ParseValueNode_(Node node, const std::string_view& name, const char* begin, const char* end);
 	std::string ParseInclude_(Node include);
 	std::string ParsePara_(Node para);
-	std::string ParseInformaltable(Node informaltable);
+	std::string ParseEmphasis_(Node emphasis);
+	std::string ParseCiterefentry_(Node citerefentry);
+	std::string ParseInformaltable_(Node informaltable);
+	void ParseInformaltableRows_(Node node, const std::string_view& name, std::stringstream& ss);
+	void ParseInformaltableRow_(Node row, bool head, std::stringstream& ss);
 
 	void ParseVariablelist_(Node variablelist, impl_refsect_parameters& parameters);
 	void ParseVarlistentry_(Node varlistentry, impl_varlistentry& value);
