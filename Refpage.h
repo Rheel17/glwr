@@ -147,6 +147,15 @@ private:
 	std::string ParseInformaltable_(Node informaltable);
 	void ParseInformaltableRows_(Node node, const std::string_view& name, std::stringstream& ss);
 	void ParseInformaltableRow_(Node row, bool head, std::stringstream& ss);
+	std::string ParseInlineequation_(Node inlineequation);
+	std::string ParseAbstractMathNode_(Node node, const std::string_view& name);
+	std::string ParseMathValue_(Node parent);
+	std::string ParseMmlmi_(Node mmlmi);
+	std::string ParseMmlmn_(Node mmlmn);
+	std::string ParseMmlmo_(Node mmlmo);
+	std::string ParseMmlmfenced_(Node mmlmfenced);
+	std::string ParseMmlmrow_(Node mmlmfenced);
+	std::string ParseMmlmsup_(Node mmlmsup);
 
 	void ParseVariablelist_(Node variablelist, impl_refsect_parameters& parameters);
 	void ParseVarlistentry_(Node varlistentry, impl_varlistentry& value);

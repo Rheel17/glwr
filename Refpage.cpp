@@ -308,8 +308,10 @@ std::string Refpage::ParseAbstractTextNode_(Node node, const std::string_view& n
 		return ""; /* ignored for now */
 	} else if (name == "informaltable") {
 		return ParseInformaltable_(node);
+	} else if (name == "inlineequation") {
+		return ParseInlineequation_(node);
 	} else {
-		std::cout << "@" << _name << " Unknown node: " << name << std::endl;
+		std::cout << "@" << _name << " Unknown text node: " << name << std::endl;
 		return "";
 	}
 }
@@ -461,6 +463,110 @@ void Refpage::ParseInformaltableRow_(Node row, bool head, std::stringstream& ss)
 			std::cout << "@" << _name << " Unknown row node: " << name << std::endl;
 		}
 	}
+}
+
+std::string Refpage::ParseInlineequation_(Node inlineequation) {
+	if (Node mmlMath = GetOnlyChild_(inlineequation, "inlineequation", "mml:math"); mmlMath) {
+		std::stringstream ss;
+
+		for (const auto& [node, name] : NodeNameIterator(mmlMath)) {
+			ss << ParseAbstractMathNode_(node, name);
+		}
+
+		return ss.str();
+	}
+
+	return "";
+}
+
+std::string Refpage::ParseAbstractMathNode_(Node node, const std::string_view& name) {
+	if (name == "") {
+		return node->value();
+	} else if (name == "mml:mi") {
+		return ParseMmlmi_(node);
+	} else if (name == "mml:mn") {
+		return ParseMmlmn_(node);
+	} else if (name == "mml:mo") {
+		return ParseMmlmo_(node);
+	} else if (name == "mml:mfenced") {
+		return ParseMmlmfenced_(node);
+	} else if (name == "mml:mrow") {
+		return ParseMmlmrow_(node);
+	} else if (name == "mml:msup") {
+		return ParseMmlmsup_(node);
+	} else {
+		std::cout << "@" << _name << " Unknown math node: " << name << std::endl;
+		return "";
+	}
+}
+
+std::string Refpage::ParseMathValue_(Node parent) {
+	std::stringstream ss;
+
+	for (const auto& [node, name] : NodeNameIterator(parent)) {
+		ss << ParseAbstractMathNode_(node, name);
+	}
+
+	return ss.str();
+}
+
+std::string Refpage::ParseMmlmi_(Node mmlmi) {
+	std::string value = ParseMathValue_(mmlmi);
+	std::string open;
+	std::string close;
+
+	if (auto attr = mmlmi->first_attribute("mathvariant"); attr) {
+		std::string mathvariant = attr->value();
+
+		if (mathvariant == "italic") {
+			open = "<i>";
+			close = "</i>";
+		} else {
+			std::cout << "@" << _name << " Unknown mml:mi mathvariant value: " << mathvariant << std::endl;
+		}
+	} else if (value.size() == 1) {
+		open = "<i>";
+		close = "</i>";
+	} else {
+		open = "";
+		close = "";
+	}
+
+	return open + value + close;
+}
+
+std::string Refpage::ParseMmlmn_(Node mmlmn) {
+	return ParseMathValue_(mmlmn);
+}
+
+std::string Refpage::ParseMmlmo_(Node mmlmo) {
+	return ParseMathValue_(mmlmo);
+}
+
+std::string Refpage::ParseMmlmfenced_(Node mmlmfenced) {
+	std::string value = ParseMathValue_(mmlmfenced);
+	std::string open = "(";
+	std::string close = ")";
+
+	if (auto openAttr = mmlmfenced->first_attribute("open"); openAttr) {
+		open = openAttr->value();
+	}
+
+	if (auto closeAttr = mmlmfenced->first_attribute("close"); closeAttr) {
+		close = closeAttr->value();
+	}
+
+	return open + value + close;
+}
+
+std::string Refpage::ParseMmlmrow_(Node mmlmfenced) {
+	return ParseMathValue_(mmlmfenced);
+}
+
+std::string Refpage::ParseMmlmsup_(Node mmlmsup) {
+	auto base = mmlmsup->first_node();
+	auto superscript = base->next_sibling();
+	return ParseAbstractMathNode_(base, base->name()) + "<sup>" + ParseAbstractMathNode_(superscript, superscript->name()) + "</sup>";
 }
 
 void Refpage::ParseVariablelist_(Node variablelist, impl_refsect_parameters& parameters) {
