@@ -59,7 +59,7 @@ public:
 
 	struct impl_varlistentry {
 		std::vector<std::string> terms;
-		std::vector<impl_listitem> listitems;
+		impl_listitem listitem;
 	};
 
 	struct impl_refsect_parameters {
@@ -105,7 +105,7 @@ public:
 
 	Refpage(std::filesystem::path dir, std::istream& input, std::string name);
 
-	void GenerateHeader(std::ostream& output);
+	void GenerateHeader(std::ostream& output) const;
 
 private:
 	void Set_(const char* node, std::string& str, std::string_view value);
@@ -160,14 +160,15 @@ private:
 	std::string ParseMmlmrow_(Node mmlmfenced);
 	std::string ParseMmlmsup_(Node mmlmsup);
 
+	void ParseParameters_(Node refsect1, impl_refsect_parameters& parameters);
 	void ParseVariablelist_(Node variablelist, impl_refsect_parameters& parameters);
 	void ParseVarlistentry_(Node varlistentry, impl_varlistentry& value);
 	void ParseTerm_(Node term, impl_varlistentry& varlistentry);
 
-	void GenerateHeader_(std::ostream& output, const impl_funcprototype& prototype);
-	void GenerateComments_(std::ostream& output, const impl_funcprototype& prototype);
-	void GenerateText_(std::ostream& output, const impl_abstract_text& text);
-	void GenerateText_(std::ostream& output, std::string_view text);
+	void GenerateHeader_(std::ostream& output, const impl_funcprototype& prototype) const;
+	void GenerateComments_(std::ostream& output, const impl_funcprototype& prototype) const;
+	void GenerateText_(std::ostream& output, const impl_abstract_text& text) const;
+	void GenerateText_(std::ostream& output, std::string_view text) const;
 
 	std::filesystem::path _dir;
 	std::string _name;
@@ -188,6 +189,9 @@ private:
 	std::optional<impl_refsect_versions> _refsect_versions;
 	std::optional<impl_refsect_seealso> _refsect_seealso;
 	std::optional<impl_refsect_copyright> _refsect_copyright;
+
+private:
+	static bool PrototypeHasParameter(const impl_funcprototype& prototype, std::string_view param);
 
 };
 

@@ -8,9 +8,7 @@
 
 #include <ctre.hpp>
 
-#define DEBUG_MARKER []{};
-
-constexpr static auto glwr_function_header_head = R"(#ifndef OPENGL_GLWR_H_
+constexpr static auto glwrFunctionHeaderHead = R"(#ifndef OPENGL_GLWR_H_
 #error "Do not include glwr function headers directly, include GL/glwr.h
 #endif
 )";
@@ -39,8 +37,8 @@ Refpage::Refpage(std::filesystem::path dir, std::istream& input, std::string nam
 	Parse_(doc);
 }
 
-void Refpage::GenerateHeader(std::ostream& output) {
-	output << glwr_function_header_head;
+void Refpage::GenerateHeader(std::ostream& output) const {
+	output << glwrFunctionHeaderHead;
 
 	// #undef any non-gl1 prototype
 	bool first = true;
@@ -87,7 +85,6 @@ Node Refpage::GetOnlyChild_(Node node, const std::string_view& name, std::string
 void Refpage::Parse_(const Document& doc) {
 	auto refentry = doc.first_node("refentry");
 	ParseRefentry_(refentry);
-	DEBUG_MARKER
 }
 
 void Refpage::ParseRefentry_(Node refentry) {
@@ -265,36 +262,12 @@ void Refpage::ParseParamdef_(Node paramdef, impl_paramdef& value) {
 
 void Refpage::ParseRefsect1Parameters_(Node refsect1) {
 	auto& parameters = _refsect_parameters.emplace();
-
-	for (const auto& [node, name] : NodeNameIterator(refsect1)) {
-		if (name == "variablelist") {
-			ParseVariablelist_(node, parameters);
-		} else if (name == "title") {
-			Node function = node->first_node("function", 8, true);
-			if (function) {
-				parameters.impl_for_function.emplace(function->value());
-			}
-		} else {
-			std::cout << "@" << _name << " Unknown node: refsect1(parameters)." << name << std::endl;
-		}
-	}
+	ParseParameters_(refsect1, parameters);
 }
 
 void Refpage::ParseRefsect1Parameters2_(Node refsect1) {
 	auto& parameters2 = _refsect_parameters_2.emplace();
-
-	for (const auto& [node, name] : NodeNameIterator(refsect1)) {
-		if (name == "variablelist") {
-			ParseVariablelist_(node, parameters2);
-		} else if (name == "title") {
-			Node function = node->first_node("function", 8, true);
-			if (function) {
-				parameters2.impl_for_function.emplace(function->value());
-			}
-		} else {
-			std::cout << "@" << _name << " Unknown node: refsect1(parameters2)." << name << std::endl;
-		}
-	}
+	ParseParameters_(refsect1, parameters2);
 }
 
 void Refpage::ParseRefsect1Description_(Node refsect1) {
@@ -472,7 +445,7 @@ std::string Refpage::ParseCiterefentry_(Node citerefentry) {
 std::string Refpage::ParseInformaltable_(Node informaltable) {
 	if (Node tgroup = GetOnlyChild_(informaltable, "informaltable", "tgroup"); tgroup) {
 		std::stringstream ss;
-		ss << "<table style=\"border:1px solid; border-spacing:0px;\">\n";
+		ss << "<table style=\"border:1px solid; border-spacing:0px; margin:8px;\">\n";
 
 		for (const auto& [node, name] : NodeNameIterator(tgroup)) {
 			if (name == "colspec") {
@@ -484,7 +457,7 @@ std::string Refpage::ParseInformaltable_(Node informaltable) {
 			}
 		}
 
-		ss << "<table>\n";
+		ss << "</table>\n";
 		return ss.str();
 	}
 
@@ -625,6 +598,21 @@ std::string Refpage::ParseMmlmsup_(Node mmlmsup) {
 	return ParseAbstractMathNode_(base, base->name()) + "<sup>" + ParseAbstractMathNode_(superscript, superscript->name()) + "</sup>";
 }
 
+void Refpage::ParseParameters_(Node refsect1, impl_refsect_parameters& parameters) {
+	for (const auto& [node, name] : NodeNameIterator(refsect1)) {
+		if (name == "variablelist") {
+			ParseVariablelist_(node, parameters);
+		} else if (name == "title") {
+			Node function = node->first_node("function", 8, true);
+			if (function) {
+				parameters.impl_for_function.emplace(function->value());
+			}
+		} else {
+			std::cout << "@" << _name << " Unknown node: refsect1(parameters)." << name << std::endl;
+		}
+	}
+}
+
 void Refpage::ParseVariablelist_(Node variablelist, impl_refsect_parameters& parameters) {
 	for (const auto& [node, name] : NodeNameIterator(variablelist)) {
 		if (name == "varlistentry") {
@@ -641,10 +629,22 @@ void Refpage::ParseVarlistentry_(Node varlistentry, impl_varlistentry& value) {
 		if (name == "term") {
 			ParseTerm_(node, value);
 		} else if (name == "listitem") {
-			auto& value2 = value.listitems.emplace_back();
-			ParseAbstractText_(node, value2.contents);
+			ParseAbstractText_(node, value.listitem.contents);
 		} else {
 			std::cout << "@" << _name << " Unknown node: refsect1(parameters).variablelist.varlistentry." << name << std::endl;
+		}
+	}
+
+
+	// if the first element is a paragraph, remove the <p></p> tags. This will
+	// still cause it to render correct, but also align the first line with the
+	// parameter name.
+	if (!value.listitem.contents.elements.empty()) {
+		std::string& first = value.listitem.contents.elements[0];
+
+		if (auto [match, contents] = ctre::match<"<p>(.*)</p>">(first); match) {
+			first.erase(contents.end(), first.end());
+			first.erase(first.begin(), contents.begin());
 		}
 	}
 }
@@ -661,7 +661,7 @@ void Refpage::ParseTerm_(Node term, impl_varlistentry& varlistentry) {
 	}
 }
 
-void Refpage::GenerateHeader_(std::ostream& output, const impl_funcprototype& prototype) {
+void Refpage::GenerateHeader_(std::ostream& output, const impl_funcprototype& prototype) const {
 	output << std::endl;
 
 	// Generate the comments for this prototype
@@ -711,24 +711,61 @@ void Refpage::GenerateHeader_(std::ostream& output, const impl_funcprototype& pr
 	}
 }
 
-void Refpage::GenerateComments_(std::ostream& output, const Refpage::impl_funcprototype& prototype) {
+void Refpage::GenerateComments_(std::ostream& output, const Refpage::impl_funcprototype& prototype) const {
+	if (prototype.funcdef.function == "glBindBuffer") {
+		std::cout << "";
+	}
+
 	output << "///" << std::endl;
 
 	// \brief
 	output << "/// \\brief" << std::endl;
 	GenerateText_(output, _refnamediv.refpurpose);
 
+	// parameters
+	if (_refsect_parameters) {
+		const impl_refsect_parameters& parameters =
+				_refsect_parameters_2.has_value() && _refsect_parameters_2->impl_for_function.value() == prototype.funcdef.function
+						? _refsect_parameters_2.value()
+						: _refsect_parameters.value();
+
+		for (const auto& varlistentry : parameters.varlistentries) {
+			bool first = true;
+
+			for (const auto& term : varlistentry.terms) {
+				if (!PrototypeHasParameter(prototype, term)) {
+					continue;
+				}
+
+				if (first) {
+					output << "///" << std::endl;
+					output << "/// \\param";
+				} else {
+					output << ',';
+				}
+
+				output << ' ' << term;
+				first = false;
+			}
+
+			if (!first) {
+				output << std::endl;
+				GenerateText_(output, varlistentry.listitem.contents);
+			}
+		}
+	}
+
 	output << "///" << std::endl;
 }
 
-void Refpage::GenerateText_(std::ostream& output, const Refpage::impl_abstract_text& text) {
+void Refpage::GenerateText_(std::ostream& output, const Refpage::impl_abstract_text& text) const {
 	for (const auto& element : text.elements) {
 		GenerateText_(output, element);
 	}
 }
 
-void Refpage::GenerateText_(std::ostream& output, std::string_view text) {
-	constexpr ctll::fixed_string regex_token = "([^\\w< ]*(?:[\\w'\\-]+|<.*?>)[^\\w< ]*)( *)(.*)";
+void Refpage::GenerateText_(std::ostream& output, std::string_view text) const {
+	constexpr ctll::fixed_string regex_token = "( *)([^\\w< ]*(?:[\\w'\\-]+|<(code|i|b)>[^ <]{0,64}</\\3>|<.*?>)[^\\w< \\n]*)(.*)";
 
 	// ignore any spaces at the beginning
 	while (!text.empty() && *text.begin() == ' ') {
@@ -753,7 +790,7 @@ void Refpage::GenerateText_(std::ostream& output, std::string_view text) {
 		}
 
 		// get the first token, its following whitespace, and the rest
-		const auto& [match, tokenMatch, spacesMatch, restMatch] = ctre::match<regex_token>(text);
+		const auto& [match, spacesMatch, tokenMatch, _, restMatch] = ctre::match<regex_token>(text);
 
 		if (!match) {
 			std::cout << "@" << _name << ": token generation failed. Left: " << text << std::endl;
@@ -766,23 +803,41 @@ void Refpage::GenerateText_(std::ostream& output, std::string_view text) {
 
 		if (!token.empty()) {
 			// output the token
+			bool space = !spaces.empty();
 
 			if (lineWidth == 0) {
 				output << "///";
-			} else if (lineWidth + token.length() + 1 > 77) {
+				space = true;
+			} else if (lineWidth + token.length() + space > 77) {
 				output << std::endl;
 				output << "///";
 				lineWidth = 0;
+				space = true;
 			}
 
-			output << ' ' << token;
-			lineWidth += token.length() + 1;
+			if (space) {
+				output << ' ';
+			}
+
+			output << token;
+			lineWidth += token.length() + space;
 		}
 
 		text = restMatch;
 	}
 
+	// end the final line
 	if (lineWidth > 0) {
 		output << std::endl;
 	}
+}
+
+bool Refpage::PrototypeHasParameter(const Refpage::impl_funcprototype& prototype, std::string_view param) {
+	for (const auto& paramdef : prototype.paramdefs) {
+		if (paramdef.parameter == param) {
+			return true;
+		}
+	}
+
+	return false;
 }

@@ -7,7 +7,7 @@
 
 #include "Refpage.h"
 
-constexpr static auto glfw_header_head = R"(#ifndef OPENGL_GLWR_H_
+constexpr static auto glfwHeaderHead = R"(#ifndef OPENGL_GLWR_H_
 #define OPENGL_GLWR_H_
 
 #include <GL/glew.h>
@@ -22,7 +22,7 @@ constexpr static auto glfw_header_head = R"(#ifndef OPENGL_GLWR_H_
 
 )";
 
-constexpr static auto glfw_header_tail = R"(
+constexpr static auto glfwHeaderTail = R"(
 #endif
 )";
 
@@ -45,13 +45,13 @@ std::vector<std::string> getFunctionFiles(const std::filesystem::path& dir) {
 
 void writeGlwrHeader(const std::filesystem::path& path, const std::vector<std::string>& declarationNames) {
 	std::ofstream file(path.string());
-	file << glfw_header_head;
+	file << glfwHeaderHead;
 
 	for (const auto& declarationName : declarationNames) {
 		file << "#include \"func/" << declarationName << ".h\"" << std::endl;
 	}
 
-	file << glfw_header_tail;
+	file << glfwHeaderTail;
 }
 
 int main(int argc, char* argv[]) {
