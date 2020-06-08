@@ -8,6 +8,8 @@
 
 #include <ctre.hpp>
 
+#define DEBUG_MARKER []{};
+
 constexpr static auto glwr_function_header_head = R"(#ifndef OPENGL_GLWR_H_
 #error "Do not include glwr function headers directly, include GL/glwr.h
 #endif
@@ -85,7 +87,7 @@ Node Refpage::GetOnlyChild_(Node node, const std::string_view& name, std::string
 void Refpage::Parse_(const Document& doc) {
 	auto refentry = doc.first_node("refentry");
 	ParseRefentry_(refentry);
-	std::cout << "";
+	DEBUG_MARKER
 }
 
 void Refpage::ParseRefentry_(Node refentry) {
@@ -144,7 +146,8 @@ void Refpage::ParseRefnamediv_(Node refnamediv) {
 		} else if (name == "refname") {
 			_refnamediv.refnames.emplace_back(node->value());
 		} else if (name == "refpurpose") {
-			Set_("refnamediv.refpurpose", _refnamediv.refpurpose, node->value());
+			std::string purpose = ParseText_(node);
+			Set_("refnamediv.refpurpose", _refnamediv.refpurpose, purpose);
 		} else {
 			std::cout << "@" << _name << " Unknown node: refnamediv." << name << std::endl;
 		}
@@ -397,6 +400,10 @@ std::string Refpage::ParseInclude_(Node include) {
 }
 
 std::string Refpage::ParsePara_(Node para) {
+	return "<p>" + ParseText_(para) + "</p>";
+}
+
+std::string Refpage::ParseText_(Node para) {
 	constexpr ctll::fixed_string regex_whitespace = "\r\n\\s*";
 	constexpr ctll::fixed_string regex_spaces = "^( *).*?( *)$";
 
@@ -504,7 +511,7 @@ void Refpage::ParseInformaltableRow_(Node row, bool head, std::stringstream& ss)
 			ss << "<";
 			ss << (head ? "th" : "td");
 			ss << " style=\"border:1px solid; padding:5px; margin:0px;\">\n";
-			ss << ParsePara_(node);
+			ss << ParseText_(node);
 			ss << "</";
 			ss << (head ? "th" : "td");
 			ss << ">\n";
@@ -705,5 +712,77 @@ void Refpage::GenerateHeader_(std::ostream& output, const impl_funcprototype& pr
 }
 
 void Refpage::GenerateComments_(std::ostream& output, const Refpage::impl_funcprototype& prototype) {
+	output << "///" << std::endl;
 
+	// \brief
+	output << "/// \\brief" << std::endl;
+	GenerateText_(output, _refnamediv.refpurpose);
+
+	output << "///" << std::endl;
+}
+
+void Refpage::GenerateText_(std::ostream& output, const Refpage::impl_abstract_text& text) {
+	for (const auto& element : text.elements) {
+		GenerateText_(output, element);
+	}
+}
+
+void Refpage::GenerateText_(std::ostream& output, std::string_view text) {
+	constexpr ctll::fixed_string regex_token = "([^\\w< ]*(?:[\\w'\\-]+|<.*?>)[^\\w< ]*)( *)(.*)";
+
+	// ignore any spaces at the beginning
+	while (!text.empty() && *text.begin() == ' ') {
+		text = text.substr(1);
+	}
+
+	// main text loop
+	unsigned lineWidth = 0;
+
+	while (!text.empty()) {
+		// new line -> output the new line
+		if (*text.begin() == '\n') {
+			if (lineWidth == 0) {
+				output << "/// " << std::endl;
+			} else {
+				output << std::endl;
+				lineWidth = 0;
+			}
+
+			text = text.substr(1);
+			continue;
+		}
+
+		// get the first token, its following whitespace, and the rest
+		const auto& [match, tokenMatch, spacesMatch, restMatch] = ctre::match<regex_token>(text);
+
+		if (!match) {
+			std::cout << "@" << _name << ": token generation failed. Left: " << text << std::endl;
+			return;
+		}
+
+		// retrieve the groups
+		std::string_view token = tokenMatch;
+		std::string_view spaces = spacesMatch;
+
+		if (!token.empty()) {
+			// output the token
+
+			if (lineWidth == 0) {
+				output << "///";
+			} else if (lineWidth + token.length() + 1 > 77) {
+				output << std::endl;
+				output << "///";
+				lineWidth = 0;
+			}
+
+			output << ' ' << token;
+			lineWidth += token.length() + 1;
+		}
+
+		text = restMatch;
+	}
+
+	if (lineWidth > 0) {
+		output << std::endl;
+	}
 }

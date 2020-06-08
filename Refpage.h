@@ -144,6 +144,7 @@ private:
 	std::string ParseValueNode_(Node node, const std::string_view& name, const char* begin, const char* end);
 	std::string ParseInclude_(Node include);
 	std::string ParsePara_(Node para);
+	std::string ParseText_(Node node);
 	std::string ParseEmphasis_(Node emphasis);
 	std::string ParseCiterefentry_(Node citerefentry);
 	std::string ParseInformaltable_(Node informaltable);
@@ -165,6 +166,8 @@ private:
 
 	void GenerateHeader_(std::ostream& output, const impl_funcprototype& prototype);
 	void GenerateComments_(std::ostream& output, const impl_funcprototype& prototype);
+	void GenerateText_(std::ostream& output, const impl_abstract_text& text);
+	void GenerateText_(std::ostream& output, std::string_view text);
 
 	std::filesystem::path _dir;
 	std::string _name;
