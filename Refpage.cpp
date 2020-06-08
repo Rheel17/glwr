@@ -11,7 +11,6 @@
 constexpr static auto glwr_function_header_head = R"(#ifndef OPENGL_GLWR_H_
 #error "Do not include glwr function headers directly, include GL/glwr.h
 #endif
-
 )";
 
 static std::string& trimr(std::string& str) {
@@ -42,16 +41,16 @@ void Refpage::GenerateHeader(std::ostream& output) {
 	output << glwr_function_header_head;
 
 	// #undef any non-gl1 prototype
-	bool hasUndef = false;
+	bool first = true;
 	for (const auto& prototype : _refsynopsisdiv.funcprototypes) {
 		if (gl1.find(prototype.funcdef.function) == gl1.end()) {
-			output << "#undef " << prototype.funcdef.function << std::endl;
-			hasUndef = true;
-		}
-	}
+			if (first) {
+				output << std::endl;
+			}
 
-	if (hasUndef) {
-		output << std::endl;
+			output << "#undef " << prototype.funcdef.function << std::endl;
+			first = false;
+		}
 	}
 
 	// declare all function prototypes
@@ -656,6 +655,8 @@ void Refpage::ParseTerm_(Node term, impl_varlistentry& varlistentry) {
 }
 
 void Refpage::GenerateHeader_(std::ostream& output, const impl_funcprototype& prototype) {
+	output << std::endl;
+
 	// Generate the comments for this prototype
 	GenerateComments_(output, prototype);
 
@@ -701,8 +702,6 @@ void Refpage::GenerateHeader_(std::ostream& output, const impl_funcprototype& pr
 		// OpenGL 1 function, so only the declaration
 		output << ";" << std::endl;
 	}
-
-	output << std::endl;
 }
 
 void Refpage::GenerateComments_(std::ostream& output, const Refpage::impl_funcprototype& prototype) {
