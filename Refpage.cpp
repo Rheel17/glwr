@@ -242,7 +242,20 @@ void Refpage::ParseRefsect1Parameters_(Node refsect1) {
 }
 
 void Refpage::ParseRefsect1Parameters2_(Node refsect1) {
+	auto& parameters2 = _refsect_parameters_2.emplace();
 
+	for (const auto& [node, name] : NodeNameIterator(refsect1)) {
+		if (name == "variablelist") {
+			ParseVariablelist_(node, parameters2);
+		} else if (name == "title") {
+			Node function = node->first_node("function", 8, true);
+			if (function) {
+				parameters2.impl_for_function.emplace(function->value());
+			}
+		} else {
+			std::cout << "@" << _name << " Unknown node: refsect1(parameters2)." << name << std::endl;
+		}
+	}
 }
 
 void Refpage::ParseRefsect1Description_(Node refsect1) {
