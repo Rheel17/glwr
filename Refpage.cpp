@@ -377,7 +377,7 @@ std::string Refpage::ParsePara_(Node para) {
 }
 
 std::string Refpage::ParseText_(Node para) {
-	constexpr ctll::fixed_string regex_whitespace = "\r\n\\s*";
+	constexpr ctll::fixed_string regex_whitespace = "\r?\n\\s*";
 	constexpr ctll::fixed_string regex_spaces = "^( *).*?( *)$";
 
 	std::stringstream ss;
