@@ -7,6 +7,12 @@
 
 #include <ctre.hpp>
 
+constexpr static auto glwr_function_header_head = R"(#ifndef OPENGL_GLWR_H_
+#error "Do not include glwr function headers directly, include GL/glwr.h
+#endif
+
+)";
+
 Refpage::Refpage(std::filesystem::path dir, std::istream& input, std::string name) :
 		_dir(std::move(dir)),
 		_name(std::move(name)) {
@@ -23,6 +29,10 @@ Refpage::Refpage(std::filesystem::path dir, std::istream& input, std::string nam
 
 	// parse
 	Parse_(doc);
+}
+
+void Refpage::GenerateHeader(std::ostream& output) {
+	output << glwr_function_header_head;
 }
 
 void Refpage::Set_(const char* name, std::string& str, const char* value) {

@@ -3,17 +3,17 @@ project(glwr)
 
 SET(CMAKE_CXX_STANDARD 20)
 
-#include(ExternalProject)
-#ExternalProject_Add(khronos-opengl-refpages
-#		GIT_REPOSITORY https://github.com/KhronosGroup/OpenGL-Refpages.git
-#		GIT_TAG master
-#		SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/opengl-refpages
-#		CONFIGURE_COMMAND ""
-#		BUILD_COMMAND ""
-#		INSTALL_COMMAND "")
+include(ExternalProject)
+ExternalProject_Add(khronos-opengl-refpages
+		GIT_REPOSITORY https://github.com/KhronosGroup/OpenGL-Refpages.git
+		GIT_TAG master
+		SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/opengl-refpages
+		CONFIGURE_COMMAND ""
+		BUILD_COMMAND ""
+		INSTALL_COMMAND "")
 
-add_executable(glwr-gen generator.cpp util.h gl1.h mathconv.h XmlHelper.h Refpage.cpp Refpage.h)
-#add_dependencies(glwr-gen khronos-opengl-refpages)
+add_executable(glwr-gen generator.cpp gl1.h XmlHelper.h Refpage.cpp Refpage.h)
+add_dependencies(glwr-gen khronos-opengl-refpages)
 
 add_custom_target(create-include-directory ALL
 		COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/include/GL/func)

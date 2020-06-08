@@ -105,6 +105,8 @@ public:
 
 	Refpage(std::filesystem::path dir, std::istream& input, std::string name);
 
+	void GenerateHeader(std::ostream& output);
+
 private:
 	void Set_(const char* node, std::string& str, const char* value);
 	Node GetOnlyChild_(Node node, const std::string_view& name, std::string_view child);
