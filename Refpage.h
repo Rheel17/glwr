@@ -108,7 +108,7 @@ public:
 	void GenerateHeader(std::ostream& output);
 
 private:
-	void Set_(const char* node, std::string& str, const char* value);
+	void Set_(const char* node, std::string& str, std::string_view value);
 	Node GetOnlyChild_(Node node, const std::string_view& name, std::string_view child);
 
 	void Parse_(const Document& doc);
@@ -162,6 +162,9 @@ private:
 	void ParseVariablelist_(Node variablelist, impl_refsect_parameters& parameters);
 	void ParseVarlistentry_(Node varlistentry, impl_varlistentry& value);
 	void ParseTerm_(Node term, impl_varlistentry& varlistentry);
+
+	void GenerateHeader_(std::ostream& output, const impl_funcprototype& prototype);
+	void GenerateComments_(std::ostream& output, const impl_funcprototype& prototype);
 
 	std::filesystem::path _dir;
 	std::string _name;

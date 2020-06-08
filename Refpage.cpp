@@ -2,6 +2,7 @@
  * Copyright (c) 2020 Levi van Rheenen
  */
 #include "Refpage.h"
+#include "gl1.h"
 
 #include <fstream>
 
@@ -12,6 +13,12 @@ constexpr static auto glwr_function_header_head = R"(#ifndef OPENGL_GLWR_H_
 #endif
 
 )";
+
+static std::string& trimr(std::string& str) {
+	auto [result, spaces] = ctre::match<".*?( +)">(str);
+	str.erase(spaces.begin(), spaces.end());
+	return str;
+}
 
 Refpage::Refpage(std::filesystem::path dir, std::istream& input, std::string name) :
 		_dir(std::move(dir)),
@@ -33,9 +40,27 @@ Refpage::Refpage(std::filesystem::path dir, std::istream& input, std::string nam
 
 void Refpage::GenerateHeader(std::ostream& output) {
 	output << glwr_function_header_head;
+
+	// #undef any non-gl1 prototype
+	bool hasUndef = false;
+	for (const auto& prototype : _refsynopsisdiv.funcprototypes) {
+		if (gl1.find(prototype.funcdef.function) == gl1.end()) {
+			output << "#undef " << prototype.funcdef.function << std::endl;
+			hasUndef = true;
+		}
+	}
+
+	if (hasUndef) {
+		output << std::endl;
+	}
+
+	// declare all function prototypes
+	for (const auto& prototype : _refsynopsisdiv.funcprototypes) {
+		GenerateHeader_(output, prototype);
+	}
 }
 
-void Refpage::Set_(const char* name, std::string& str, const char* value) {
+void Refpage::Set_(const char* name, std::string& str, std::string_view value) {
 	if (str.empty()) {
 		str = value;
 		return;
@@ -213,7 +238,8 @@ void Refpage::ParseFuncprototype_(Node funcprototype, impl_funcprototype& value)
 void Refpage::ParseFuncdef_(Node funcdef, impl_funcdef& value) {
 	for (const auto& [node, name] : NodeNameIterator(funcdef)) {
 		if (name == "") {
-			Set_("refsynopsisdiv.funcsynopsis.funcprototype.funcdef(value)", value.type, funcdef->value());
+			std::string type = node->value();
+			Set_("refsynopsisdiv.funcsynopsis.funcprototype.funcdef(value)", value.type, trimr(type));
 		} else if (name == "function") {
 			Set_("refsynopsisdiv.funcsynopsis.funcprototype.funcdef.function", value.function, node->value());
 		} else {
@@ -225,7 +251,8 @@ void Refpage::ParseFuncdef_(Node funcdef, impl_funcdef& value) {
 void Refpage::ParseParamdef_(Node paramdef, impl_paramdef& value) {
 	for (const auto& [node, name] : NodeNameIterator(paramdef)) {
 		if (name == "") {
-			Set_("refsynopsisdiv.funcsynopsis.funcprototype.paramdef(value)", value.type, paramdef->value());
+			std::string type = node->value();
+			Set_("refsynopsisdiv.funcsynopsis.funcprototype.paramdef(value)", value.type, trimr(type));
 		} else if (name == "parameter") {
 			Set_("refsynopsisdiv.funcsynopsis.funcprototype.funcdef.parameter", value.parameter, node->value());
 		} else {
@@ -626,4 +653,58 @@ void Refpage::ParseTerm_(Node term, impl_varlistentry& varlistentry) {
 			std::cout << "@" << _name << " Unknown node: refsect1(parameters).variablelist.varlistentry.term." << name << std::endl;
 		}
 	}
+}
+
+void Refpage::GenerateHeader_(std::ostream& output, const impl_funcprototype& prototype) {
+	// Generate the comments for this prototype
+	GenerateComments_(output, prototype);
+
+	// Output the function prototype
+	if (gl1.find(prototype.funcdef.function) == gl1.end()) {
+		output << "GLWR_INLINE ";
+	}
+
+	output << prototype.funcdef.type << " " << prototype.funcdef.function << "(";
+
+	bool first = true;
+	for (const auto& parameter : prototype.paramdefs) {
+		if (!first) {
+			output << ", ";
+		}
+
+		output << parameter.type << " " << parameter.parameter;
+		first = false;
+	}
+
+	output << ")";
+
+	if (gl1.find(prototype.funcdef.function) == gl1.end()) {
+		// later than OpenGL 1, so give a definition
+		std::string_view nongl(prototype.funcdef.function.begin() + 2, prototype.funcdef.function.end());
+
+		output << " {" << std::endl;
+		output << "\tGLEW_GET_FUN(__glew" << nongl << ")(";
+
+		first = true;
+		for (const auto& parameter : prototype.paramdefs) {
+			if (!first) {
+				output << ", ";
+			}
+
+			output << parameter.parameter;
+			first = false;
+		}
+
+		output << ");" << std::endl;
+		output << "}" << std::endl;
+	} else {
+		// OpenGL 1 function, so only the declaration
+		output << ";" << std::endl;
+	}
+
+	output << std::endl;
+}
+
+void Refpage::GenerateComments_(std::ostream& output, const Refpage::impl_funcprototype& prototype) {
+
 }
