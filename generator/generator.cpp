@@ -21,6 +21,8 @@ constexpr static auto glfwHeaderHead = R"(#ifndef OPENGL_GLWR_H_
 #define GLWR_INLINE inline
 #endif
 
+using DEBUGPROC = GLDEBUGPROC;
+
 )";
 
 constexpr static auto glfwHeaderTail = R"(

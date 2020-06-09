@@ -4,6 +4,7 @@
 #include "Refpage.h"
 #include "gl1.h"
 
+#include <cstring>
 #include <fstream>
 
 #include <ctre.hpp>
@@ -1125,6 +1126,7 @@ void Refpage::ParseDescription_(Node refsect1, impl_refsect_description& descrip
 }
 
 void Refpage::GenerateHeader_(std::ostream& output, const impl_funcprototype& prototype) const {
+	constexpr ctll::fixed_string regex_const_pointer = "\\s*const\\s+([a-zA-Z_]\\w*)\\s*(\\*)\\s*(?:const\\s*(\\*)\\s*)?";
 	output << std::endl;
 
 	// Generate the comments for this prototype
@@ -1160,6 +1162,13 @@ void Refpage::GenerateHeader_(std::ostream& output, const impl_funcprototype& pr
 		for (const auto& parameter : prototype.paramdefs) {
 			if (!first) {
 				output << ", ";
+			}
+
+			// For most functions, GLEW doesn't have const* parameters.
+			// Unfortunately that means that we need to cast the const away
+			// here.
+			if (const auto& [match, type, p1, p2] = ctre::match<regex_const_pointer>(parameter.type); match) {
+				output << "(" << std::string_view(type) << " " << std::string_view(p1) << std::string_view(p2) << ") ";
 			}
 
 			output << parameter.parameter;
