@@ -1156,7 +1156,13 @@ void Refpage::GenerateHeader_(std::ostream& output, const impl_funcprototype& pr
 		std::string_view nongl(prototype.funcdef.function.begin() + 2, prototype.funcdef.function.end());
 
 		output << " {" << std::endl;
-		output << "\tGLEW_GET_FUN(__glew" << nongl << ")(";
+		output << "\t";
+
+		if (prototype.funcdef.type != "void") {
+			output << "return ";
+		}
+
+		output << "GLEW_GET_FUN(__glew" << nongl << ")(";
 
 		first = true;
 		for (const auto& parameter : prototype.paramdefs) {
