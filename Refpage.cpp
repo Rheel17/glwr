@@ -1147,17 +1147,11 @@ void Refpage::GenerateHeader_(std::ostream& output, const impl_funcprototype& pr
 	}
 }
 
-///
-/// \brief hello
-///
-/// \since OpenGL 4.5
-///
-/// \param output
-/// \param prototype
 void Refpage::GenerateComments_(std::ostream& output, const Refpage::impl_funcprototype& prototype) const {
 	// brief
 	output << "///" << std::endl;
 	output << "/// \\brief" << std::endl;
+	output << "/// <a href=\"https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/" << _name << ".xhtml\">" << _name << "</a> " << std::endl;
 	GenerateText_(output, _refnamediv.refpurpose);
 
 	// version
