@@ -6,7 +6,7 @@ GLWR is an attempt to provide C/C++ header files for OpenGL functions that inclu
 
 GLWR generates header files for each OpenGL Reference Page. It redefines the OpenGL functions with proper parameter names. For each function, it includes documentation in [Doxygen](https://www.doxygen.nl/index.html) format.
 
-## Building GLWR headers
+## Building the GLWR headers
 
 To build the GLWR headers and use them, you need:
 
@@ -22,7 +22,8 @@ To build the GLWR headers and use them, you need:
     - `cd glwr`
 - Run CMake
     - `mkdir build`
-    - `cmake .. <options>`
+    - `cmake -DCMAKE_BUILD_TYPE=Release .. <options>`  
+      *Note: Building with* `-DCMAKE_BUILD_TYPE=Release` *will significantly reduce build times.* 
 - Build
     - `cmake --build .`  
       If this step fails due to an `-fpermissive` error in a RapidXml file, follow [these](https://stackoverflow.com/a/14114300/1546467) steps.

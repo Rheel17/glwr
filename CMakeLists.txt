@@ -53,7 +53,7 @@ ExternalProject_Add(khronos-opengl-refpages
 		BUILD_COMMAND ""
 		INSTALL_COMMAND "")
 
-add_executable(glwr-gen generator.cpp gl1.h XmlHelper.h Options.h Refpage.cpp Refpage.h)
+add_executable(glwr-gen generator/generator.cpp generator/gl1.h generator/XmlHelper.h generator/Options.h generator/Refpage.cpp generator/Refpage.h)
 add_dependencies(glwr-gen khronos-opengl-refpages)
 
 add_custom_target(create-include-directory ALL
