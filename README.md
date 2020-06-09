@@ -24,7 +24,8 @@ To build the GLWR headers and use them, you need:
     - `mkdir build`
     - `cmake .. <options>`
 - Build
-    - `cmake --build .`
+    - `cmake --build .`  
+      If this step fails due to an `-fpermissive` error in a RapidXml file, follow [these](https://stackoverflow.com/a/14114300/1546467) steps.
 
 The headers can now be found in `/build/include/GL`. Find your `glew.h` header file and copy `glwr.h` and `func/*.h` to the same directory.
 
