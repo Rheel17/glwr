@@ -155,6 +155,8 @@ private:
 	void ParseInformaltableRow_(Node row, bool head, std::stringstream& ss);
 	std::string ParseProgramlisting_(Node programlisting);
 	std::string ParseItemizedlist_(Node itemizedlist);
+	std::string ParseVariablelistGlosslist_(Node variablelist);
+	std::string ParseVarlistentryGlossentry_(Node varlistentry);
 	std::string ParseInlineequation_(Node inlineequation);
 	std::string ParseInformalequation_(Node inlineequation);
 

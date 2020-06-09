@@ -332,6 +332,8 @@ std::string Refpage::ParseAbstractTextNode_(Node node, const std::string_view& n
 		return ParseValueNode_(node, name, "<b><code>", "</code></b>");
 	} else if (name == "code") {
 		return ParseValueNode_(node, name, "<code>", "</code>");
+	} else if (name == "superscript") {
+		return ParseValueNode_(node, name, "<sup>", "</sup>");
 	} else if (name == "emphasis") {
 		return ParseEmphasis_(node);
 	} else if (name == "citerefentry") {
@@ -346,6 +348,10 @@ std::string Refpage::ParseAbstractTextNode_(Node node, const std::string_view& n
 		return ParseProgramlisting_(node);
 	} else if (name == "itemizedlist") {
 		return ParseItemizedlist_(node);
+	} else if (name == "variablelist") {
+		return ParseVariablelistGlosslist_(node);
+	} else if (name == "glosslist") {
+		return ParseVariablelistGlosslist_(node);
 	} else if (name == "inlineequation") {
 		return ParseInlineequation_(node);
 	} else if (name == "informalequation") {
@@ -518,21 +524,28 @@ void Refpage::ParseInformaltableRow_(Node row, bool head, std::stringstream& ss)
 std::string Refpage::ParseProgramlisting_(Node programlisting) {
 	constexpr ctll::fixed_string regex_line = "([^\\r\\n]*)(\\r?\\n)?(.*)";
 
-	if (Node child = GetOnlyChild_(programlisting, "programlisting", ""); child) {
-		std::stringstream ss;
-		std::string_view value = child->value();
+	std::stringstream contents;
 
-		while (!value.empty()) {
-			const auto& [match, line, linefeed, rest] = ctre::match<regex_line>(value);
-			std::string_view lineValue = line;
-			ss << "<pre>" << lineValue << "</pre>" << std::endl;
-			value = rest;
+	for (const auto& [node, name] : NodeNameIterator(programlisting)) {
+		if (name == "") {
+			contents << node->value();
+		} else {
+			contents << ParseAbstractTextNode_(node, name);
 		}
-
-		return ss.str();
 	}
 
-	return "";
+	std::stringstream ss;
+	std::string valueString = contents.str();
+	std::string_view value = valueString;
+
+	while (!value.empty()) {
+		const auto& [match, line, linefeed, rest] = ctre::match<regex_line>(value);
+		std::string_view lineValue = line;
+		ss << "<pre>" << lineValue << "</pre>" << std::endl;
+		value = rest;
+	}
+
+	return ss.str();
 }
 
 std::string Refpage::ParseItemizedlist_(Node itemizedlist) {
@@ -548,6 +561,63 @@ std::string Refpage::ParseItemizedlist_(Node itemizedlist) {
 	}
 
 	ss << "</ul>\n";
+	return ss.str();
+}
+
+std::string Refpage::ParseVariablelistGlosslist_(Node variablelist) {
+	std::stringstream ss;
+	ss << "<table>\n";
+
+	for (const auto&[node, name] : NodeNameIterator(variablelist)) {
+		if (name == "varlistentry" || name == "glossentry") {
+			ss << ParseVarlistentryGlossentry_(node);
+		} else {
+			std::cout << "@" << _name << " Unknown node: " << variablelist->name() << "." << name << std::endl;
+		}
+	}
+
+	ss << "</table>";
+	return ss.str();
+}
+
+std::string Refpage::ParseVarlistentryGlossentry_(Node varlistentry) {
+	std::vector<std::string> terms;
+	impl_abstract_text text;
+
+	for (const auto& [node, name] : NodeNameIterator(varlistentry)) {
+		if (name == "term" || name == "glossterm") {
+			terms.push_back(ParseValueNode_(node, name, "<i><code>", "</code></i>"));
+		} else if (name == "listitem" || name == "glossdef") {
+			ParseAbstractText_(node, text);
+		} else {
+			std::cout << "@" << _name << " Unknown node: " << varlistentry->name() << "." << name << std::endl;
+		}
+	}
+
+	std::stringstream ss;
+	ss << "<tr>\n";
+	ss << "<th>\n";
+
+	bool first = true;
+	for (const auto& term : terms) {
+		if (!first) {
+			ss << ", ";
+		}
+
+		ss << term;
+		first = false;
+	}
+
+	ss << "</th>\n";
+	ss << "<td>&nbsp;&nbsp;</th>\n";
+	ss << "<td>\n";
+
+	for (const auto& t : text.elements) {
+		ss << t << std::endl;
+	}
+
+	ss << "</td>\n";
+	ss << "</tr>\n";
 	return ss.str();
 }
 
