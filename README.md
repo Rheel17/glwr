@@ -31,7 +31,7 @@ The headers can now be found in `/build/include/GL`. Find your `glew.h` header f
 ### Options
 Several options can be given in the CMake build step.
 
-##### Include/exclude documentation sections
+#### Include/exclude documentation sections
 Use the following options to include/exclude documentation sections:
 
 | Option                       | Description                                           | Default |
@@ -50,9 +50,9 @@ Use the following options to include/exclude documentation sections:
 
 Note that the documentation sections correspond to the sections in the [OpenGL Refpages](https://www.khronos.org/registry/OpenGL-Refpages/gl4/). Not all sections will be available for all functions. 
 
-*Warning: enabling some sections (in particular the 'description' section) will result in some very large (>100kB) header files. Use with caution!*  
+***Warning:** enabling some sections (in particular the 'description' section) will result in some very large (>100kB) header files. Use with caution!*  
 
-##### Verbose output
+#### Verbose output
 Enable verbose output using `-DVERBOSE=ON`. If `VERBOSE` is turned on, the generator code will output the header file names as they are generated.
 
 ## Usage
