@@ -69,13 +69,12 @@ int main(int argc, char* argv[]) {
 		std::string name(function.begin(), function.end() - 4);
 		declarationNames.push_back(name);
 
+		std::cout << "Generating " << name << ".h" << std::endl;
 		std::ifstream file(gl4 / function, std::ios::binary);
 		Refpage refpage(gl4, file, name);
 
 		std::filesystem::path functionHeaderPath = include / "func" / (name + ".h");
 		std::ofstream functionHeader(functionHeaderPath.string());
-
-		std::cout << "Generating " << name << ".h" << std::endl;
 		refpage.GenerateHeader(functionHeader);
 	}
 

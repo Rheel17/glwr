@@ -77,31 +77,31 @@ public:
 	struct impl_refsect_description_2 : public impl_refsect_description {};
 
 	struct impl_refsect_examples {
-
+		impl_abstract_text contents;
 	};
 
 	struct impl_refsect_notes {
-
+		impl_abstract_text contents;
 	};
 
 	struct impl_refsect_errors {
-
+		impl_abstract_text contents;
 	};
 
 	struct impl_refsect_associatedgets {
-
+		impl_abstract_text contents;
 	};
 
 	struct impl_refsect_versions {
-
+		std::unordered_map<std::string, std::string> versions;
 	};
 
 	struct impl_refsect_seealso {
-
+		impl_abstract_text contents;
 	};
 
 	struct impl_refsect_copyright {
-
+		impl_abstract_text contents;
 	};
 
 	Refpage(std::filesystem::path dir, std::istream& input, std::string name);
@@ -142,12 +142,14 @@ private:
 
 	void ParseAbstractText_(Node parent, impl_abstract_text& text);
 	std::string ParseAbstractTextNode_(Node node, const std::string_view& name);
-	std::string ParseValueNode_(Node node, const std::string_view& name, const char* begin, const char* end);
+	std::string ParseValueNode_(Node node, const std::string_view& name, const std::string& begin, const std::string& end);
 	std::string ParseInclude_(Node include);
 	std::string ParsePara_(Node para);
 	std::string ParseText_(Node node);
 	std::string ParseEmphasis_(Node emphasis);
+	std::string ParseTrademark_(Node trademark);
 	std::string ParseCiterefentry_(Node citerefentry);
+	std::string ParseLink_(Node link);
 	std::string ParseInformaltable_(Node informaltable);
 	std::string ParseTable_(Node table);
 	void ParseTableGroup_(Node tgroup, std::stringstream& ss);

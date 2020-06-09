@@ -280,31 +280,83 @@ void Refpage::ParseRefsect1Description2_(Node refsect1) {
 }
 
 void Refpage::ParseRefsect1Examples_(Node refsect1) {
-
+	auto& examples = _refsect_examples.emplace();
+	ParseAbstractText_(refsect1, examples.contents);
 }
 
 void Refpage::ParseRefsect1Notes_(Node refsect1) {
-
+	auto& notes = _refsect_notes.emplace();
+	ParseAbstractText_(refsect1, notes.contents);
 }
 
 void Refpage::ParseRefsect1Errors_(Node refsect1) {
-
+	auto& errors = _refsect_errors.emplace();
+	ParseAbstractText_(refsect1, errors.contents);
 }
 
 void Refpage::ParseRefsect1Associatedgets_(Node refsect1) {
-
+	auto& associatedgets = _refsect_associatedgets.emplace();
+	ParseAbstractText_(refsect1, associatedgets.contents);
 }
 
 void Refpage::ParseRefsect1Versions_(Node refsect1) {
+	auto& versions = _refsect_versions.emplace();
+	constexpr ctll::fixed_string regex_version = ".*@role='(\\d)(\\d)'.*";
+
+	Node informaltable = refsect1->first_node("informaltable");
+	if (!informaltable) {
+		std::cout << "@" << _name << " refsect1(versions).informaltable missing" << std::endl;
+		return;
+	}
+
+	if (Node tgroup = GetOnlyChild_(informaltable, "informaltable", "tgroup"); tgroup) {
+		Node tbody = tgroup->first_node("tbody");
+		if (!tbody) {
+			std::cout << "@" << _name << " refsect1(versions).informaltable.tbody missing" << std::endl;
+			return;
+		}
+
+		for (const auto& [node, name] : NodeNameIterator(tbody)) {
+			if (name == "row") {
+				Node entry = node->first_node("entry", 5, false);
+				Node include = entry->next_sibling("xi:include");
+
+				if (!entry || !include) {
+					std::cout << "@" << _name << " refsect1(versions).informaltable.tbody.row.entry or xi:include missing" << std::endl;
+					return;
+				}
+
+				Node functionNode = entry->first_node("function");
+				if (!functionNode) {
+					continue;
+				}
+
+				std::string function = functionNode->value();
+				std::string xpointer = include->first_attribute("xpointer")->value();
+
+				const auto& [match, major, minor] = ctre::match<regex_version>(xpointer);
+				if (!match) {
+					std::cout << "@" << _name << " version xpointer doesn't match regex" << std::endl;
+					return;
+				}
+
+				versions.versions[function] = std::string(major) + "." + std::string(minor);
+			} else {
+				std::cout << "@" << _name << " Unknown node: refsect1(versions).informaltable.tbody." << name << std::endl;
+			}
+		}
+	}
 
 }
 
 void Refpage::ParseRefsect1Seealso_(Node refsect1) {
-
+	auto& seealso = _refsect_seealso.emplace();
+	ParseAbstractText_(refsect1, seealso.contents);
 }
 
 void Refpage::ParseRefsect1Copyright_(Node refsect1) {
-
+	auto& copyright = _refsect_copyright.emplace();
+	ParseAbstractText_(refsect1, copyright.contents);
 }
 
 void Refpage::ParseAbstractText_(Node parent, impl_abstract_text& text) {
@@ -336,8 +388,12 @@ std::string Refpage::ParseAbstractTextNode_(Node node, const std::string_view& n
 		return ParseValueNode_(node, name, "<sup>", "</sup>");
 	} else if (name == "emphasis") {
 		return ParseEmphasis_(node);
+	} else if (name == "trademark") {
+		return ParseTrademark_(node);
 	} else if (name == "citerefentry") {
 		return ParseCiterefentry_(node);
+	} else if (name == "link") {
+		return ParseLink_(node);
 	} else if (name == "footnote") {
 		return ""; /* ignored for now */
 	} else if (name == "informaltable") {
@@ -362,7 +418,7 @@ std::string Refpage::ParseAbstractTextNode_(Node node, const std::string_view& n
 	}
 }
 
-std::string Refpage::ParseValueNode_(Node node, const std::string_view& name, const char* begin, const char* end) {
+std::string Refpage::ParseValueNode_(Node node, const std::string_view& name, const std::string& begin, const std::string& end) {
 	return begin + ParseText_(node) + end;
 }
 
@@ -470,9 +526,36 @@ std::string Refpage::ParseEmphasis_(Node emphasis) {
 	return ParseValueNode_(emphasis, "emphasis", openTag.c_str(), closeTag.c_str());
 }
 
+std::string Refpage::ParseTrademark_(Node trademark) {
+	if (auto attr = trademark->first_attribute("class"); attr) {
+		std::string_view value = attr->value();
+
+		if (value == "copyright") {
+			return "(c)";
+		} else {
+			std::cout << "@" << _name << " Unknown trademark class: " << value << std::endl;
+		}
+	} else {
+		std::cout << "@" << _name << " Trademark node without class attribute" << std::endl;
+	}
+
+	return "";
+}
+
 std::string Refpage::ParseCiterefentry_(Node citerefentry) {
 	if (Node child = GetOnlyChild_(citerefentry, "citerefentry", "refentrytitle"); child) {
 		return ParseValueNode_(child, "refentrytitle", "<b>", "</b>");
+	}
+
+	return "";
+}
+
+std::string Refpage::ParseLink_(Node link) {
+	if (auto attr = link->first_attribute("xlink:href"); attr) {
+		std::string_view value = attr->value();
+		return ParseValueNode_(link, "link", "<a href=\"" + std::string(attr->value()) + "\">", "</a>");
+	} else {
+		std::cout << "@" << _name << " Link node without xlink:href attribute" << std::endl;
 	}
 
 	return "";
@@ -927,6 +1010,22 @@ std::string Refpage::ParseInnerLaTeX_(std::string_view input) {
 		return "<i>components</i>";
 	} else if (input == "base\\_type") {
 		return "<i>base_type</i>";
+	} else if (input == "first + count") {
+		return "<i>first</i> + <i>count</i>";
+	} else if (input == "N") {
+		return "<i>N</i>";
+	}  else if (input == "offset + size") {
+		return "<i>offset</i> + <i>size</i>";
+	} else if (input == "readOffset + size") {
+		return "<i>readOffset</i> + <i>size</i>";
+	} else if (input == "writeOffset + size") {
+		return "<i>writeOffset</i> + <i>size</i>";
+	} else if (input == "[readOffset,readOffset+size)") {
+		return "[<i>readOffset</i>, <i>readOffset</i> + <i>size</i>)";
+	} else if (input == "[writeOffset,writeOffset+size)") {
+		return "[<i>writeOffset</i>, <i>writeOffset</i> + <i>size</i>)";
+	} else if (input == "offset + length") {
+		return "<i>offset</i> + <i>length</i>";
 	} else {
 		std::cout << "Unrecognized LaTeX math: " << input << std::endl;
 		return "<code>LaTeX</code>";
@@ -1048,17 +1147,29 @@ void Refpage::GenerateHeader_(std::ostream& output, const impl_funcprototype& pr
 	}
 }
 
+///
+/// \brief hello
+///
+/// \since OpenGL 4.5
+///
+/// \param output
+/// \param prototype
 void Refpage::GenerateComments_(std::ostream& output, const Refpage::impl_funcprototype& prototype) const {
-	if (prototype.funcdef.function == "glBindBuffer") {
-		std::cout << "";
-	}
-
 	// brief
 	output << "///" << std::endl;
 	output << "/// \\brief" << std::endl;
 	GenerateText_(output, _refnamediv.refpurpose);
 
-	// details
+	// version
+	if (_refsect_versions) {
+		auto iter = _refsect_versions->versions.find(prototype.funcdef.function);
+		if (iter != _refsect_versions->versions.end()) {
+			output << "///" << std::endl;
+			output << "/// \\since OpenGL " << iter->second << std::endl;
+		}
+	}
+
+	// description
 	if (_refsect_description) {
 		const impl_refsect_description& description =
 				_refsect_description_2.has_value() && _refsect_description_2->impl_for_function.value() == prototype.funcdef.function
@@ -1066,8 +1177,43 @@ void Refpage::GenerateComments_(std::ostream& output, const Refpage::impl_funcpr
 						: _refsect_description.value();
 
 		output << "///" << std::endl;
-		output << "/// \\details" << std::endl;
+		output << "/// \\description" << std::endl;
 		GenerateText_(output, description.contents);
+	}
+
+	// examples
+	if (_refsect_examples) {
+		output << "///" << std::endl;
+		output << "/// \\examples" << std::endl;
+		GenerateText_(output, _refsect_examples->contents);
+	}
+
+	// notes
+	if (_refsect_notes) {
+		output << "///" << std::endl;
+		output << "/// \\notes" << std::endl;
+		GenerateText_(output, _refsect_notes->contents);
+	}
+
+	// errors
+	if (_refsect_errors) {
+		output << "///" << std::endl;
+		output << "/// \\errors" << std::endl;
+		GenerateText_(output, _refsect_errors->contents);
+	}
+
+	// associated gets
+	if (_refsect_associatedgets) {
+		output << "///" << std::endl;
+		output << "/// \\associated_gets" << std::endl;
+		GenerateText_(output, _refsect_associatedgets->contents);
+	}
+
+	// see also
+	if (_refsect_seealso) {
+		output << "///" << std::endl;
+		output << "/// \\see_also" << std::endl;
+		GenerateText_(output, _refsect_seealso->contents);
 	}
 
 	// parameters
@@ -1103,6 +1249,12 @@ void Refpage::GenerateComments_(std::ostream& output, const Refpage::impl_funcpr
 		}
 	}
 
+	if (_refsect_copyright) {
+		output << "///" << std::endl;
+		output << "/// \\copyright" << std::endl;
+		GenerateText_(output, _refsect_copyright->contents);
+	}
+
 	output << "///" << std::endl;
 }
 
@@ -1114,10 +1266,6 @@ void Refpage::GenerateText_(std::ostream& output, const Refpage::impl_abstract_t
 
 void Refpage::GenerateText_(std::ostream& output, std::string_view text) const {
 	constexpr ctll::fixed_string regex_token = "( *)([^\\w< ]*(?:[\\w'\\-]+|<(code|sub|sup|i|b)>[^ <]{0,64}</\\3>|<pre>.*?</pre>|<.*?>)?[^\\w< \\n]*)(.*)";
-
-	if (_name == "glBlendFunc") {
-		std::cout << "";
-	}
 
 	// ignore any spaces at the beginning
 	while (!text.empty() && *text.begin() == ' ') {
