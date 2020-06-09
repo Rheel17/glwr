@@ -71,6 +71,7 @@ public:
 
 	struct impl_refsect_description {
 		std::optional<std::string> impl_for_function;
+		impl_abstract_text contents;
 	};
 
 	struct impl_refsect_description_2 : public impl_refsect_description {};
@@ -148,22 +149,36 @@ private:
 	std::string ParseEmphasis_(Node emphasis);
 	std::string ParseCiterefentry_(Node citerefentry);
 	std::string ParseInformaltable_(Node informaltable);
-	void ParseInformaltableRows_(Node node, const std::string_view& name, std::stringstream& ss);
+	std::string ParseTable_(Node table);
+	void ParseTableGroup_(Node tgroup, std::stringstream& ss);
+	void ParseTableRows_(Node node, const std::string_view& name, std::stringstream& ss);
 	void ParseInformaltableRow_(Node row, bool head, std::stringstream& ss);
+	std::string ParseProgramlisting_(Node programlisting);
+	std::string ParseItemizedlist_(Node itemizedlist);
 	std::string ParseInlineequation_(Node inlineequation);
+	std::string ParseInformalequation_(Node inlineequation);
+
 	std::string ParseAbstractMathNode_(Node node, const std::string_view& name);
 	std::string ParseMathValue_(Node parent);
 	std::string ParseMmlmi_(Node mmlmi);
 	std::string ParseMmlmn_(Node mmlmn);
 	std::string ParseMmlmo_(Node mmlmo);
+	std::string ParseMmlmtext_(Node mmlmtext);
 	std::string ParseMmlmfenced_(Node mmlmfenced);
-	std::string ParseMmlmrow_(Node mmlmfenced);
+	std::string ParseMmlmrow_(Node mmlmrow);
 	std::string ParseMmlmsup_(Node mmlmsup);
+	std::string ParseMmlmsub_(Node mmlmsub);
+	std::string ParseMmlmfrac_(Node mmlmfrac);
+	std::string ParseMmlmtable_(Node mmlmtable);
+	std::string ParseMmlmtr_(Node mmlmtr);
+	std::string ParseMmlmtd_(Node mmlmtd);
+	std::string ParseMmlmspace_(Node mmlmspace);
 
 	void ParseParameters_(Node refsect1, impl_refsect_parameters& parameters);
 	void ParseVariablelist_(Node variablelist, impl_refsect_parameters& parameters);
 	void ParseVarlistentry_(Node varlistentry, impl_varlistentry& value);
 	void ParseTerm_(Node term, impl_varlistentry& varlistentry);
+	void ParseDescription_(Node refsect1, impl_refsect_description& description);
 
 	void GenerateHeader_(std::ostream& output, const impl_funcprototype& prototype) const;
 	void GenerateComments_(std::ostream& output, const impl_funcprototype& prototype) const;

@@ -11,54 +11,6 @@
 using Document = rapidxml::xml_document<>;
 using Node = rapidxml::xml_node<>*;
 
-class NodeIterator {
-
-public:
-	class IteratorImpl {
-
-	public:
-		explicit IteratorImpl(Node n) :
-				_n(n) {}
-
-		inline IteratorImpl operator++() {
-			// prefix
-			_n = _n->next_sibling();
-			return *this;
-		}
-
-		inline bool operator!=(const IteratorImpl& iter) {
-			return _n != iter._n;
-		}
-
-		inline Node operator*() {
-			return _n;
-		}
-
-		inline Node operator->() {
-			return _n;
-		}
-
-	private:
-		Node _n;
-
-	};
-
-	/* implicit */ NodeIterator(Node n) :
-			_n(n) {}
-
-	inline IteratorImpl begin() {
-		return IteratorImpl(_n->first_node());
-	}
-
-	inline IteratorImpl end() {
-		return IteratorImpl(nullptr);
-	}
-
-private:
-	Node _n;
-
-};
-
 class NodeNameIterator {
 
 public:
@@ -148,7 +100,16 @@ struct tuple_element<1, NodeNameIterator::NodeName> {
 	using type = std::string_view;
 };
 
+}
 
+inline bool hasDescendant(Node node, std::string_view descendantName) {
+	for (const auto& [nd, nm] : NodeNameIterator(node)) {
+		if (nm == descendantName || hasDescendant(nd, descendantName)) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 #endif
