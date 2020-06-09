@@ -176,6 +176,9 @@ private:
 	std::string ParseMmlmtd_(Node mmlmtd);
 	std::string ParseMmlmspace_(Node mmlmspace);
 
+	std::string ParseLaTeX_(std::string_view type, std::string_view input);
+	std::string ParseInnerLaTeX_(std::string_view input);
+
 	void ParseParameters_(Node refsect1, impl_refsect_parameters& parameters);
 	void ParseVariablelist_(Node variablelist, impl_refsect_parameters& parameters);
 	void ParseVarlistentry_(Node varlistentry, impl_varlistentry& value);
@@ -208,7 +211,7 @@ private:
 	std::optional<impl_refsect_copyright> _refsect_copyright;
 
 private:
-	static bool PrototypeHasParameter(const impl_funcprototype& prototype, std::string_view param);
+	static bool PrototypeHasParameter_(const impl_funcprototype& prototype, std::string_view param);
 
 };
 

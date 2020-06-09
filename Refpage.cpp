@@ -396,6 +396,7 @@ std::string Refpage::ParsePara_(Node para) {
 std::string Refpage::ParseText_(Node para) {
 	constexpr ctll::fixed_string regex_whitespace = "\r?\n\\s*";
 	constexpr ctll::fixed_string regex_spaces = "^( *).*?( *)$";
+	constexpr ctll::fixed_string regex_tex = "(\\${1,2})([^$]+)(?:\\1)(.*)";
 
 	std::stringstream ss;
 
@@ -420,6 +421,7 @@ std::string Refpage::ParseText_(Node para) {
 		}
 	}
 
+	// erase leading and trailing spaces
 	std::string result = ss.str();
 
 	if (auto [found, begin, end] = ctre::match<regex_spaces>(result); found) {
@@ -427,7 +429,24 @@ std::string Refpage::ParseText_(Node para) {
 		result.erase(begin.begin(), begin.end());
 	}
 
-	return result;
+	// parse TeX symbols
+	std::string_view input = result;
+	std::stringstream output;
+
+	while (!input.empty()) {
+		auto [match, type, contents, rest] = ctre::search<regex_tex>(input);
+
+		if (match) {
+			output << std::string_view(input.begin(), match.begin());
+			output << ParseLaTeX_(type, contents);
+			input = rest;
+		} else {
+			output << input;
+			break;
+		}
+	}
+
+	return output.str();
 }
 
 std::string Refpage::ParseEmphasis_(Node emphasis) {
@@ -465,6 +484,7 @@ std::string Refpage::ParseInformaltable_(Node informaltable) {
 
 std::string Refpage::ParseTable_(Node table) {
 	std::stringstream ss;
+	ss << "<table style=\"border:1px solid; border-spacing:0px; margin:8px;\">\n";
 
 	for (const auto& [node, name] : NodeNameIterator(table)) {
 		if (name == "title") {
@@ -476,6 +496,7 @@ std::string Refpage::ParseTable_(Node table) {
 		}
 	}
 
+	ss << "</table>\n";
 	return ss.str();
 }
 
@@ -761,7 +782,21 @@ std::string Refpage::ParseMmlmfenced_(Node mmlmfenced) {
 		close = closeAttr->value();
 	}
 
-	return open + value + close;
+	std::stringstream ss;
+	ss << open;
+	bool first = true;
+
+	for (const auto& [node, name] : NodeNameIterator(mmlmfenced)) {
+		if (!first) {
+			ss << ",&nbsp";
+		}
+
+		ss << ParseAbstractMathNode_(node, name);
+		first = false;
+	}
+
+	ss << close;
+	return ss.str();
 }
 
 std::string Refpage::ParseMmlmrow_(Node mmlmrow) {
@@ -771,13 +806,13 @@ std::string Refpage::ParseMmlmrow_(Node mmlmrow) {
 std::string Refpage::ParseMmlmsup_(Node mmlmsup) {
 	auto base = mmlmsup->first_node();
 	auto superscript = base->next_sibling();
-	return ParseAbstractMathNode_(base, base->name()) + "<sup>" + ParseAbstractMathNode_(superscript, superscript->name()) + "</sup>";
+	return ParseAbstractMathNode_(base, base->name()) + "<sup>" + ParseAbstractMathNode_(superscript, superscript->name()) + "</sup> ";
 }
 
 std::string Refpage::ParseMmlmsub_(Node mmlmsub) {
 	auto base = mmlmsub->first_node();
 	auto subscript = base->next_sibling();
-	return ParseAbstractMathNode_(base, base->name()) + "<sub>" + ParseAbstractMathNode_(subscript, subscript->name()) + "</sub>";
+	return ParseAbstractMathNode_(base, base->name()) + "<sub>" + ParseAbstractMathNode_(subscript, subscript->name()) + "</sub> ";
 }
 
 std::string Refpage::ParseMmlmfrac_(Node mmlmsub) {
@@ -800,6 +835,102 @@ std::string Refpage::ParseMmlmtd_(Node mmlmtd) {
 
 std::string Refpage::ParseMmlmspace_(Node) {
 	return "&nbsp;&nbsp;&nbsp;&nbsp;";
+}
+
+std::string Refpage::ParseLaTeX_(std::string_view type, std::string_view input) {
+	bool texinline = type == "$";
+	std::stringstream ss;
+
+	if (!texinline) {
+		ss << "<center>";
+	}
+
+	ss << ParseInnerLaTeX_(input);
+
+	if (!texinline) {
+		ss << "</center>";
+	}
+	return ss.str();
+}
+
+std::string Refpage::ParseInnerLaTeX_(std::string_view input) {
+	// Ok. this is bad. However, there is not much LaTeX code in the refpages so
+	// parsing LaTeX would be extremely overkill. For now, this will have to do.
+
+	if (input == "first") {
+		return "<i>first</i>";
+	} else if (input == "first + count - 1") {
+		return "<i>first</i> + <i>count</i> - 1";
+	} else if (input == "z_{min} \\leq z_c \\leq w_c") {
+		return "<i>z<sub>min</sub></i> &le; <i>z<sub>c</sub></i> &le; <i>w<sub>c</sub></i>";
+	} else if (input == "z_{min} = -w_c") {
+		return "<i>z<sub>min</sub></i> = -<i>w<sub>c</sub></i>";
+	} else if (input == "z_{min} = 0") {
+		return "<i>z<sub>min</sub></i> = 0";
+	} else if (input == "y_d") {
+		return "<i>y<sub>d</sub></i>";
+	} else if (input == "y_d = { { f \\times y_c } \\over w_c }") {
+		return "<i>y<sub>d</sub></i> = <sup><i>f</i> &times; <i>y<sub>c</sub></i></sup>/<sub><i>w<sub>c</sub></i></sub>";
+	} else if (input == "f = 1") {
+		return "<i>f</i> = 1";
+	} else if (input == "f = -1") {
+		return "<i>f</i> = -1";
+	} else if (input == "z_w") {
+		return "<i>z<sub>w</sub></i>";
+	} else if (input == "z_w = s \\times z_d + b") {
+		return "<i>z<sub>w</sub></i> = <i>s</i> &times; <i>z<sub>d</sub> + <i>b</i>";
+	} else if (input == "s = { { f - n } \\over 2 }") {
+		return "<i>s</i> = <sup><i>f</i> - <i>n</i></sup>/<sub>2</sub>";
+	} else if (input == "b = { {n + f} \\over 2 }") {
+		return "<i>b</i> = <sup><i>n</i> + <i>f</i></sup>/<sub>2</sub>";
+	} else if (input == "s = f - n") {
+		return "<i>s</i> = <i>f</i> - <i>n</i>";
+	} else if (input == "b = n") {
+		return "<i>b</i> = <i>n</i>";
+	} else if (input == "n") {
+		return "<i>n</i>";
+	} else if (input == "f") {
+		return "<i>f</i>";
+	} else if (input == "readOffset+size") {
+		return "<i>readOffset</i> + <i>size</i>";
+	} else if (input == "writeOffset+size") {
+		return "<i>writeOffset</i> + <i>size</i>";
+	} else if (input == "[0,1]") {
+		return "[0,1]";
+	} else if (input == "m") {
+		return "<i>m</i>";
+	} else if (input == "log_2") {
+		return "log<sub>2</sub>";
+	} else if (input == " face = k \\bmod 6. ") {
+		return " <i>face</i> = <i>k</i> mod 6. ";
+	} else if (input == " layer = \\left\\lfloor { layer \\over 6 } \\right\\rfloor") {
+		return " <i>layer</i> = &lfloor; <i>layer</i>/6 &rfloor;";
+	} else if (input == "level_{base} + 1") {
+		return "<i>level<sub>base</sub></i> + 1";
+	} else if (input == "q") {
+		return "<i>q</i>";
+	} else if (input == "level_{base}") {
+		return "<i>level<sub>base</sub></i>";
+	} else if (input == "level_{base}+1") {
+		return "<i>level<sub>base</sub></i> + 1";
+	} else if (input == "n") {
+		return "<i>n</i>";
+	} else if (input == "k") {
+		return "<i>k</i>";
+	} else if (input == "(0,0)") {
+		return "(0,0)";
+	} else if (input == " \\left\\lfloor { size \\over { components \\times sizeof(base\\_type) } } \\right\\rfloor ") {
+		return "&lfloor; <sup><i>size</i></sup>/<sub><i>components</i> &times; sizeof(<i>base_type</i>)</sub> &rfloor;";
+	} else if (input == "size") {
+		return "<i>size</i>";
+	} else if (input == "components") {
+		return "<i>components</i>";
+	} else if (input == "base\\_type") {
+		return "<i>base_type</i>";
+	} else {
+		std::cout << "Unrecognized LaTeX math: " << input << std::endl;
+		return "<code>LaTeX</code>";
+	}
 }
 
 void Refpage::ParseParameters_(Node refsect1, impl_refsect_parameters& parameters) {
@@ -922,11 +1053,22 @@ void Refpage::GenerateComments_(std::ostream& output, const Refpage::impl_funcpr
 		std::cout << "";
 	}
 
+	// brief
 	output << "///" << std::endl;
-
-	// \brief
 	output << "/// \\brief" << std::endl;
 	GenerateText_(output, _refnamediv.refpurpose);
+
+	// details
+	if (_refsect_description) {
+		const impl_refsect_description& description =
+				_refsect_description_2.has_value() && _refsect_description_2->impl_for_function.value() == prototype.funcdef.function
+						? _refsect_description_2.value()
+						: _refsect_description.value();
+
+		output << "///" << std::endl;
+		output << "/// \\details" << std::endl;
+		GenerateText_(output, description.contents);
+	}
 
 	// parameters
 	if (_refsect_parameters) {
@@ -939,7 +1081,7 @@ void Refpage::GenerateComments_(std::ostream& output, const Refpage::impl_funcpr
 			bool first = true;
 
 			for (const auto& term : varlistentry.terms) {
-				if (!PrototypeHasParameter(prototype, term)) {
+				if (!PrototypeHasParameter_(prototype, term)) {
 					continue;
 				}
 
@@ -971,7 +1113,11 @@ void Refpage::GenerateText_(std::ostream& output, const Refpage::impl_abstract_t
 }
 
 void Refpage::GenerateText_(std::ostream& output, std::string_view text) const {
-	constexpr ctll::fixed_string regex_token = "( *)([^\\w< ]*(?:[\\w'\\-]+|<(code|i|b)>[^ <]{0,64}</\\3>|<pre>.*?</pre>|<.*?>)[^\\w< \\n]*)(.*)";
+	constexpr ctll::fixed_string regex_token = "( *)([^\\w< ]*(?:[\\w'\\-]+|<(code|sub|sup|i|b)>[^ <]{0,64}</\\3>|<pre>.*?</pre>|<.*?>)?[^\\w< \\n]*)(.*)";
+
+	if (_name == "glBlendFunc") {
+		std::cout << "";
+	}
 
 	// ignore any spaces at the beginning
 	while (!text.empty() && *text.begin() == ' ') {
@@ -1038,7 +1184,7 @@ void Refpage::GenerateText_(std::ostream& output, std::string_view text) const {
 	}
 }
 
-bool Refpage::PrototypeHasParameter(const Refpage::impl_funcprototype& prototype, std::string_view param) {
+bool Refpage::PrototypeHasParameter_(const Refpage::impl_funcprototype& prototype, std::string_view param) {
 	for (const auto& paramdef : prototype.paramdefs) {
 		if (paramdef.parameter == param) {
 			return true;

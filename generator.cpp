@@ -74,6 +74,8 @@ int main(int argc, char* argv[]) {
 
 		std::filesystem::path functionHeaderPath = include / "func" / (name + ".h");
 		std::ofstream functionHeader(functionHeaderPath.string());
+
+		std::cout << "Generating " << name << ".h" << std::endl;
 		refpage.GenerateHeader(functionHeader);
 	}
 
