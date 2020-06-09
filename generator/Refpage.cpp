@@ -226,7 +226,11 @@ void Refpage::ParseFuncprototype_(Node funcprototype, impl_funcprototype& value)
 			ParseFuncdef_(node, value.funcdef);
 		} else if (name == "paramdef") {
 			auto& value2 = value.paramdefs.emplace_back();
-			ParseParamdef_(node, value2);
+
+			if (!ParseParamdef_(node, value2)) {
+				// remove empty parameters
+				value.paramdefs.pop_back();
+			}
 		} else {
 			std::cout << "@" << _name << " Unknown node: refsynopsisdiv.funcsynopsis.funcprototype." << name << std::endl;
 		}
@@ -246,7 +250,7 @@ void Refpage::ParseFuncdef_(Node funcdef, impl_funcdef& value) {
 	}
 }
 
-void Refpage::ParseParamdef_(Node paramdef, impl_paramdef& value) {
+bool Refpage::ParseParamdef_(Node paramdef, impl_paramdef& value) {
 	for (const auto& [node, name] : NodeNameIterator(paramdef)) {
 		if (name == "") {
 			std::string type = node->value();
@@ -257,6 +261,8 @@ void Refpage::ParseParamdef_(Node paramdef, impl_paramdef& value) {
 			std::cout << "@" << _name << " Unknown node: refsynopsisdiv.funcsynopsis.funcprototype.paramdef." << name << std::endl;
 		}
 	}
+
+	return !(value.type == "void" || value.parameter == "void");
 }
 
 void Refpage::ParseRefsect1Parameters_(Node refsect1) {

@@ -127,7 +127,7 @@ private:
 	void ParseFuncsynopsis_(Node funcsynopsis, impl_refsynopsisdiv& value);
 	void ParseFuncprototype_(Node funcprototype, impl_funcprototype& value);
 	void ParseFuncdef_(Node funcdef, impl_funcdef& value);
-	void ParseParamdef_(Node paramdef, impl_paramdef& value);
+	bool ParseParamdef_(Node paramdef, impl_paramdef& value);
 
 	void ParseRefsect1Parameters_(Node refsect1);
 	void ParseRefsect1Parameters2_(Node refsect1);
