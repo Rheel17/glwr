@@ -1,6 +1,47 @@
 cmake_minimum_required(VERSION 3.13)
 project(glwr)
 
+option(LINK "Include a link to the Khronos site" ON)
+option(BRIEF "Include a short description about the function" ON)
+option(VERSION "Include the supported versions" ON)
+option(DESCRIPTION "Include a long description about the function" OFF)
+option(EXAMPLES "Include examples" OFF)
+option(NOTES "Include notes" OFF)
+option(ERRORS "Include errors" ON)
+option(ASSOCIATED_GETS "Include associated gets" OFF)
+option(SEE_ALSO "Include a 'see also' section" OFF)
+option(PARAMETERS "Include information about the parameters" ON)
+option(COPYRIGHT "Include the copyright notice" ON)
+
+option(VERBOSE "Output the function names as they generate" OFF)
+
+set(INCLUDES "")
+
+function(buildoption NAME ENABLED)
+	set(temp ${INCLUDES})
+
+	if (${ENABLED})
+		string(APPEND temp "1")
+		message("enabled: " ${NAME})
+	else()
+		string(APPEND temp "0")
+	endif()
+
+	set(INCLUDES ${temp} PARENT_SCOPE)
+endfunction()
+
+buildoption(LINK ${LINK})
+buildoption(BRIEF ${BRIEF})
+buildoption(VERSION ${VERSION})
+buildoption(DESCRIPTION ${DESCRIPTION})
+buildoption(EXAMPLES ${EXAMPLES})
+buildoption(NOTES ${NOTES})
+buildoption(ERRORS ${ERRORS})
+buildoption(ASSOCIATED_GETS ${ASSOCIATED_GETS})
+buildoption(SEE_ALSO ${SEE_ALSO})
+buildoption(PARAMETERS ${PARAMETERS})
+buildoption(COPYRIGHT ${COPYRIGHT})
+
 SET(CMAKE_CXX_STANDARD 20)
 
 include(ExternalProject)
@@ -12,7 +53,7 @@ ExternalProject_Add(khronos-opengl-refpages
 		BUILD_COMMAND ""
 		INSTALL_COMMAND "")
 
-add_executable(glwr-gen generator.cpp gl1.h XmlHelper.h Refpage.cpp Refpage.h)
+add_executable(glwr-gen generator.cpp gl1.h XmlHelper.h Options.h Refpage.cpp Refpage.h)
 add_dependencies(glwr-gen khronos-opengl-refpages)
 
 add_custom_target(create-include-directory ALL
@@ -20,7 +61,7 @@ add_custom_target(create-include-directory ALL
 
 add_custom_command(
 		OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/include/GL/glwr.h
-		COMMAND ${CMAKE_CURRENT_BINARY_DIR}/glwr-gen ${CMAKE_CURRENT_BINARY_DIR}/include/GL
+		COMMAND ${CMAKE_CURRENT_BINARY_DIR}/glwr-gen ${CMAKE_CURRENT_BINARY_DIR}/include/GL ${INCLUDES} ${VERBOSE}
 		DEPENDS glwr-gen create-include-directory)
 
 add_custom_target(glwr ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/include/GL/glwr.h)

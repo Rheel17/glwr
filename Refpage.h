@@ -10,6 +10,7 @@
 #include <filesystem>
 
 #include "XmlHelper.h"
+#include "Options.h"
 
 class Refpage {
 

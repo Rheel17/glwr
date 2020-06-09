@@ -260,103 +260,124 @@ void Refpage::ParseParamdef_(Node paramdef, impl_paramdef& value) {
 }
 
 void Refpage::ParseRefsect1Parameters_(Node refsect1) {
-	auto& parameters = _refsect_parameters.emplace();
-	ParseParameters_(refsect1, parameters);
+	if (include.parameters) {
+		auto& parameters = _refsect_parameters.emplace();
+		ParseParameters_(refsect1, parameters);
+	}
 }
 
 void Refpage::ParseRefsect1Parameters2_(Node refsect1) {
-	auto& parameters2 = _refsect_parameters_2.emplace();
-	ParseParameters_(refsect1, parameters2);
+	if (include.parameters) {
+		auto& parameters2 = _refsect_parameters_2.emplace();
+		ParseParameters_(refsect1, parameters2);
+	}
 }
 
 void Refpage::ParseRefsect1Description_(Node refsect1) {
-	auto& description = _refsect_description.emplace();
-	ParseDescription_(refsect1, description);
+	if (include.description) {
+		auto& description = _refsect_description.emplace();
+		ParseDescription_(refsect1, description);
+	}
 }
 
 void Refpage::ParseRefsect1Description2_(Node refsect1) {
-	auto& description2 = _refsect_description_2.emplace();
-	ParseDescription_(refsect1, description2);
+	if (include.description) {
+		auto& description2 = _refsect_description_2.emplace();
+		ParseDescription_(refsect1, description2);
+	}
 }
 
 void Refpage::ParseRefsect1Examples_(Node refsect1) {
-	auto& examples = _refsect_examples.emplace();
-	ParseAbstractText_(refsect1, examples.contents);
+	if (include.examples) {
+		auto& examples = _refsect_examples.emplace();
+		ParseAbstractText_(refsect1, examples.contents);
+	}
 }
 
 void Refpage::ParseRefsect1Notes_(Node refsect1) {
-	auto& notes = _refsect_notes.emplace();
-	ParseAbstractText_(refsect1, notes.contents);
+	if (include.notes) {
+		auto& notes = _refsect_notes.emplace();
+		ParseAbstractText_(refsect1, notes.contents);
+	}
 }
 
 void Refpage::ParseRefsect1Errors_(Node refsect1) {
-	auto& errors = _refsect_errors.emplace();
-	ParseAbstractText_(refsect1, errors.contents);
+	if (include.errors) {
+		auto& errors = _refsect_errors.emplace();
+		ParseAbstractText_(refsect1, errors.contents);
+	}
 }
 
 void Refpage::ParseRefsect1Associatedgets_(Node refsect1) {
-	auto& associatedgets = _refsect_associatedgets.emplace();
-	ParseAbstractText_(refsect1, associatedgets.contents);
+	if (include.associated_gets) {
+		auto& associatedgets = _refsect_associatedgets.emplace();
+		ParseAbstractText_(refsect1, associatedgets.contents);
+	}
 }
 
 void Refpage::ParseRefsect1Versions_(Node refsect1) {
-	auto& versions = _refsect_versions.emplace();
-	constexpr ctll::fixed_string regex_version = ".*@role='(\\d)(\\d)'.*";
+	if (include.version) {
+		auto& versions = _refsect_versions.emplace();
+		constexpr ctll::fixed_string regex_version = ".*@role='(\\d)(\\d)'.*";
 
-	Node informaltable = refsect1->first_node("informaltable");
-	if (!informaltable) {
-		std::cout << "@" << _name << " refsect1(versions).informaltable missing" << std::endl;
-		return;
-	}
-
-	if (Node tgroup = GetOnlyChild_(informaltable, "informaltable", "tgroup"); tgroup) {
-		Node tbody = tgroup->first_node("tbody");
-		if (!tbody) {
-			std::cout << "@" << _name << " refsect1(versions).informaltable.tbody missing" << std::endl;
+		Node informaltable = refsect1->first_node("informaltable");
+		if (!informaltable) {
+			std::cout << "@" << _name << " refsect1(versions).informaltable missing" << std::endl;
 			return;
 		}
 
-		for (const auto& [node, name] : NodeNameIterator(tbody)) {
-			if (name == "row") {
-				Node entry = node->first_node("entry", 5, false);
-				Node include = entry->next_sibling("xi:include");
+		if (Node tgroup = GetOnlyChild_(informaltable, "informaltable", "tgroup"); tgroup) {
+			Node tbody = tgroup->first_node("tbody");
+			if (!tbody) {
+				std::cout << "@" << _name << " refsect1(versions).informaltable.tbody missing" << std::endl;
+				return;
+			}
 
-				if (!entry || !include) {
-					std::cout << "@" << _name << " refsect1(versions).informaltable.tbody.row.entry or xi:include missing" << std::endl;
-					return;
+			for (const auto&[node, name] : NodeNameIterator(tbody)) {
+				if (name == "row") {
+					Node entry = node->first_node("entry", 5, false);
+					Node include = entry->next_sibling("xi:include");
+
+					if (!entry || !include) {
+						std::cout << "@" << _name << " refsect1(versions).informaltable.tbody.row.entry or xi:include missing" << std::endl;
+						return;
+					}
+
+					Node functionNode = entry->first_node("function");
+					if (!functionNode) {
+						continue;
+					}
+
+					std::string function = functionNode->value();
+					std::string xpointer = include->first_attribute("xpointer")->value();
+
+					const auto&[match, major, minor] = ctre::match<regex_version>(xpointer);
+					if (!match) {
+						std::cout << "@" << _name << " version xpointer doesn't match regex" << std::endl;
+						return;
+					}
+
+					versions.versions[function] = std::string(major) + "." + std::string(minor);
+				} else {
+					std::cout << "@" << _name << " Unknown node: refsect1(versions).informaltable.tbody." << name << std::endl;
 				}
-
-				Node functionNode = entry->first_node("function");
-				if (!functionNode) {
-					continue;
-				}
-
-				std::string function = functionNode->value();
-				std::string xpointer = include->first_attribute("xpointer")->value();
-
-				const auto& [match, major, minor] = ctre::match<regex_version>(xpointer);
-				if (!match) {
-					std::cout << "@" << _name << " version xpointer doesn't match regex" << std::endl;
-					return;
-				}
-
-				versions.versions[function] = std::string(major) + "." + std::string(minor);
-			} else {
-				std::cout << "@" << _name << " Unknown node: refsect1(versions).informaltable.tbody." << name << std::endl;
 			}
 		}
 	}
-
 }
 
 void Refpage::ParseRefsect1Seealso_(Node refsect1) {
-	auto& seealso = _refsect_seealso.emplace();
-	ParseAbstractText_(refsect1, seealso.contents);
+	if (include.see_also) {
+		auto& seealso = _refsect_seealso.emplace();
+		ParseAbstractText_(refsect1, seealso.contents);
+	}
 }
 
 void Refpage::ParseRefsect1Copyright_(Node refsect1) {
-	auto& copyright = _refsect_copyright.emplace();
-	ParseAbstractText_(refsect1, copyright.contents);
+	if (include.copyright) {
+		auto& copyright = _refsect_copyright.emplace();
+		ParseAbstractText_(refsect1, copyright.contents);
+	}
 }
 
 void Refpage::ParseAbstractText_(Node parent, impl_abstract_text& text) {
@@ -1149,10 +1170,25 @@ void Refpage::GenerateHeader_(std::ostream& output, const impl_funcprototype& pr
 
 void Refpage::GenerateComments_(std::ostream& output, const Refpage::impl_funcprototype& prototype) const {
 	// brief
-	output << "///" << std::endl;
-	output << "/// \\brief" << std::endl;
-	output << "/// <a href=\"https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/" << _name << ".xhtml\">" << _name << "</a> " << std::endl;
-	GenerateText_(output, _refnamediv.refpurpose);
+	if (include.link || include.brief) {
+		output << "///" << std::endl;
+		output << "/// \\brief" << std::endl;
+
+		if (include.link) {
+			output << "/// <a href=\"https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/" << _name << ".xhtml\">" << _name << "</a> " << std::endl;
+		}
+
+		std::string brief = _refnamediv.refpurpose;
+
+		if (include.link && include.brief) {
+			std::string_view ndash = "&ndash; ";
+			brief.insert(brief.begin(), ndash.begin(), ndash.end());
+		}
+
+		if (include.brief) {
+			GenerateText_(output, brief);
+		}
+	}
 
 	// version
 	if (_refsect_versions) {
@@ -1189,27 +1225,6 @@ void Refpage::GenerateComments_(std::ostream& output, const Refpage::impl_funcpr
 		GenerateText_(output, _refsect_notes->contents);
 	}
 
-	// errors
-	if (_refsect_errors) {
-		output << "///" << std::endl;
-		output << "/// \\errors" << std::endl;
-		GenerateText_(output, _refsect_errors->contents);
-	}
-
-	// associated gets
-	if (_refsect_associatedgets) {
-		output << "///" << std::endl;
-		output << "/// \\associated_gets" << std::endl;
-		GenerateText_(output, _refsect_associatedgets->contents);
-	}
-
-	// see also
-	if (_refsect_seealso) {
-		output << "///" << std::endl;
-		output << "/// \\see_also" << std::endl;
-		GenerateText_(output, _refsect_seealso->contents);
-	}
-
 	// parameters
 	if (_refsect_parameters) {
 		const impl_refsect_parameters& parameters =
@@ -1243,6 +1258,28 @@ void Refpage::GenerateComments_(std::ostream& output, const Refpage::impl_funcpr
 		}
 	}
 
+	// errors
+	if (_refsect_errors) {
+		output << "///" << std::endl;
+		output << "/// \\errors" << std::endl;
+		GenerateText_(output, _refsect_errors->contents);
+	}
+
+	// associated gets
+	if (_refsect_associatedgets) {
+		output << "///" << std::endl;
+		output << "/// \\associated_gets" << std::endl;
+		GenerateText_(output, _refsect_associatedgets->contents);
+	}
+
+	// see also
+	if (_refsect_seealso) {
+		output << "///" << std::endl;
+		output << "/// \\see_also" << std::endl;
+		GenerateText_(output, _refsect_seealso->contents);
+	}
+
+	// copyright
 	if (_refsect_copyright) {
 		output << "///" << std::endl;
 		output << "/// \\copyright" << std::endl;

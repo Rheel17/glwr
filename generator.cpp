@@ -3,6 +3,7 @@
  */
 #include <ctre.hpp>
 
+#include <cstring>
 #include <fstream>
 
 #include "Refpage.h"
@@ -55,12 +56,15 @@ void writeGlwrHeader(const std::filesystem::path& path, const std::vector<std::s
 }
 
 int main(int argc, char* argv[]) {
-	if (argc <= 1) {
+	if (argc != 4) {
 		return -1;
 	}
 
 	auto gl4 = std::filesystem::current_path() / "opengl-refpages" / "gl4";
-	auto include = std::filesystem::path(argv[1]);
+	auto dir = std::filesystem::path(argv[1]);
+
+	include.Parse(argv[2]);
+	verbose = std::strcmp(argv[3], "ON") == 0;
 
 	std::vector<std::string> functions = getFunctionFiles(gl4);
 	std::vector<std::string> declarationNames;
@@ -69,15 +73,18 @@ int main(int argc, char* argv[]) {
 		std::string name(function.begin(), function.end() - 4);
 		declarationNames.push_back(name);
 
-		std::cout << "Generating " << name << ".h" << std::endl;
+		if (verbose) {
+			std::cout << "Generating " << name << ".h" << std::endl;
+		}
+
 		std::ifstream file(gl4 / function, std::ios::binary);
 		Refpage refpage(gl4, file, name);
 
-		std::filesystem::path functionHeaderPath = include / "func" / (name + ".h");
+		std::filesystem::path functionHeaderPath = dir / "func" / (name + ".h");
 		std::ofstream functionHeader(functionHeaderPath.string());
 		refpage.GenerateHeader(functionHeader);
 	}
 
-	writeGlwrHeader(include / "glwr.h", declarationNames);
+	writeGlwrHeader(dir / "glwr.h", declarationNames);
 	return 0;
 }
