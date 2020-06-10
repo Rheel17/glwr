@@ -177,7 +177,7 @@ private:
 	std::string ParseMmlmtable_(Node mmlmtable);
 	std::string ParseMmlmtr_(Node mmlmtr);
 	std::string ParseMmlmtd_(Node mmlmtd);
-	std::string ParseMmlmspace_(Node mmlmspace);
+	static std::string ParseMmlmspace_(Node mmlmspace);
 
 	std::string ParseLaTeX_(std::string_view type, std::string_view input);
 	std::string ParseInnerLaTeX_(std::string_view input);

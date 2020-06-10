@@ -325,7 +325,7 @@ void Refpage::ParseRefsect1Associatedgets_(Node refsect1) {
 void Refpage::ParseRefsect1Versions_(Node refsect1) {
 	if (include.version) {
 		auto& versions = _refsect_versions.emplace();
-		constexpr ctll::fixed_string regex_version = ".*@role='(\\d)(\\d)'.*";
+		constexpr ctll::fixed_string regexVersion = R"(.*@role='(\d)(\d)'.*)";
 
 		Node informaltable = refsect1->first_node("informaltable");
 		if (!informaltable) {
@@ -343,9 +343,9 @@ void Refpage::ParseRefsect1Versions_(Node refsect1) {
 			for (const auto&[node, name] : NodeNameIterator(tbody)) {
 				if (name == "row") {
 					Node entry = node->first_node("entry", 5, false);
-					Node include = entry->next_sibling("xi:include");
+					Node xiinclude = entry->next_sibling("xi:include");
 
-					if (!entry || !include) {
+					if (!entry || !xiinclude) {
 						std::cout << "@" << _name << " refsect1(versions).informaltable.tbody.row.entry or xi:include missing" << std::endl;
 						return;
 					}
@@ -356,9 +356,9 @@ void Refpage::ParseRefsect1Versions_(Node refsect1) {
 					}
 
 					std::string function = functionNode->value();
-					std::string xpointer = include->first_attribute("xpointer")->value();
+					std::string xpointer = xiinclude->first_attribute("xpointer")->value();
 
-					const auto&[match, major, minor] = ctre::match<regex_version>(xpointer);
+					const auto&[match, major, minor] = ctre::match<regexVersion>(xpointer);
 					if (!match) {
 						std::cout << "@" << _name << " version xpointer doesn't match regex" << std::endl;
 						return;
@@ -478,9 +478,9 @@ std::string Refpage::ParsePara_(Node para) {
 }
 
 std::string Refpage::ParseText_(Node para) {
-	constexpr ctll::fixed_string regex_whitespace = "\r?\n\\s*";
-	constexpr ctll::fixed_string regex_spaces = "^( *).*?( *)$";
-	constexpr ctll::fixed_string regex_tex = "(\\${1,2})([^$]+)(?:\\1)(.*)";
+	constexpr ctll::fixed_string regexWhitespace = R"(\r?\n\s*)";
+	constexpr ctll::fixed_string regexSpaces = R"(^( *).*?( *)$)";
+	constexpr ctll::fixed_string regexTex = R"((\${1,2})([^$]+)(?:\1)(.*))";
 
 	std::stringstream ss;
 
@@ -488,14 +488,14 @@ std::string Refpage::ParseText_(Node para) {
 		std::string value = node->value();
 
 		if (name == "") {
-			auto result = ctre::search<regex_whitespace>(value);
+			auto result = ctre::search<regexWhitespace>(value);
 			bool hasWhitespace = result;
 
 			while (hasWhitespace) {
 				auto iter = value.erase(result.get<0>().begin(), result.get<0>().end());
 				value.insert(iter, ' ');
 
-				result = ctre::search<regex_whitespace>(value);
+				result = ctre::search<regexWhitespace>(value);
 				hasWhitespace = result;
 			}
 
@@ -508,7 +508,7 @@ std::string Refpage::ParseText_(Node para) {
 	// erase leading and trailing spaces
 	std::string result = ss.str();
 
-	if (auto [found, begin, end] = ctre::match<regex_spaces>(result); found) {
+	if (auto [found, begin, end] = ctre::match<regexSpaces>(result); found) {
 		result.erase(end.begin(), end.end());
 		result.erase(begin.begin(), begin.end());
 	}
@@ -518,7 +518,7 @@ std::string Refpage::ParseText_(Node para) {
 	std::stringstream output;
 
 	while (!input.empty()) {
-		auto [match, type, contents, rest] = ctre::search<regex_tex>(input);
+		auto [match, type, contents, rest] = ctre::search<regexTex>(input);
 
 		if (match) {
 			output << std::string_view(input.begin(), match.begin());
@@ -551,7 +551,7 @@ std::string Refpage::ParseEmphasis_(Node emphasis) {
 		closeTag = "</i>";
 	}
 
-	return ParseValueNode_(emphasis, "emphasis", openTag.c_str(), closeTag.c_str());
+	return ParseValueNode_(emphasis, "emphasis", openTag, closeTag);
 }
 
 std::string Refpage::ParseTrademark_(Node trademark) {
@@ -654,7 +654,7 @@ void Refpage::ParseInformaltableRow_(Node row, bool head, std::stringstream& ss)
 }
 
 std::string Refpage::ParseProgramlisting_(Node programlisting) {
-	constexpr ctll::fixed_string regex_line = "([^\\r\\n]*)(\\r?\\n)?(.*)";
+	constexpr ctll::fixed_string regexLine = R"(([^\r\n]*)(\r?\n)?(.*))";
 
 	std::stringstream contents;
 
@@ -671,7 +671,7 @@ std::string Refpage::ParseProgramlisting_(Node programlisting) {
 	std::string_view value = valueString;
 
 	while (!value.empty()) {
-		const auto& [match, line, linefeed, rest] = ctre::match<regex_line>(value);
+		const auto& [match, line, linefeed, rest] = ctre::match<regexLine>(value);
 		std::string_view lineValue = line;
 		ss << "<pre>" << lineValue << "</pre>" << std::endl;
 		value = rest;
@@ -1014,7 +1014,7 @@ std::string Refpage::ParseInnerLaTeX_(std::string_view input) {
 		return "log<sub>2</sub>";
 	} else if (input == " face = k \\bmod 6. ") {
 		return " <i>face</i> = <i>k</i> mod 6. ";
-	} else if (input == " layer = \\left\\lfloor { layer \\over 6 } \\right\\rfloor") {
+	} else if (input == R"( layer = \left\lfloor { layer \over 6 } \right\rfloor)") {
 		return " <i>layer</i> = &lfloor; <i>layer</i>/6 &rfloor;";
 	} else if (input == "level_{base} + 1") {
 		return "<i>level<sub>base</sub></i> + 1";
@@ -1024,13 +1024,11 @@ std::string Refpage::ParseInnerLaTeX_(std::string_view input) {
 		return "<i>level<sub>base</sub></i>";
 	} else if (input == "level_{base}+1") {
 		return "<i>level<sub>base</sub></i> + 1";
-	} else if (input == "n") {
-		return "<i>n</i>";
 	} else if (input == "k") {
 		return "<i>k</i>";
 	} else if (input == "(0,0)") {
 		return "(0,0)";
-	} else if (input == " \\left\\lfloor { size \\over { components \\times sizeof(base\\_type) } } \\right\\rfloor ") {
+	} else if (input == R"( \left\lfloor { size \over { components \times sizeof(base\_type) } } \right\rfloor )") {
 		return "&lfloor; <sup><i>size</i></sup>/<sub><i>components</i> &times; sizeof(<i>base_type</i>)</sub> &rfloor;";
 	} else if (input == "size") {
 		return "<i>size</i>";
@@ -1055,7 +1053,7 @@ std::string Refpage::ParseInnerLaTeX_(std::string_view input) {
 	} else if (input == "offset + length") {
 		return "<i>offset</i> + <i>length</i>";
 	} else {
-		std::cout << "Unrecognized LaTeX math: " << input << std::endl;
+		std::cout << "@" << _name << " Unrecognized LaTeX math: " << input << std::endl;
 		return "<code>LaTeX</code>";
 	}
 }
@@ -1126,7 +1124,7 @@ void Refpage::ParseDescription_(Node refsect1, impl_refsect_description& descrip
 }
 
 void Refpage::GenerateHeader_(std::ostream& output, const impl_funcprototype& prototype) const {
-	constexpr ctll::fixed_string regex_const_pointer = "\\s*const\\s+([a-zA-Z_]\\w*)\\s*(\\*)\\s*(?:const\\s*(\\*)\\s*)?";
+	constexpr ctll::fixed_string regexConstPointer = R"(\s*const\s+([a-zA-Z_]\w*)\s*(\*)\s*(?:const\s*(\*)\s*)?)";
 	output << std::endl;
 
 	// Generate the comments for this prototype
@@ -1173,7 +1171,7 @@ void Refpage::GenerateHeader_(std::ostream& output, const impl_funcprototype& pr
 			// For most functions, GLEW doesn't have const* parameters.
 			// Unfortunately that means that we need to cast the const away
 			// here.
-			if (const auto& [match, type, p1, p2] = ctre::match<regex_const_pointer>(parameter.type); match) {
+			if (const auto& [match, type, p1, p2] = ctre::match<regexConstPointer>(parameter.type); match) {
 				output << "(" << std::string_view(type) << " " << std::string_view(p1) << std::string_view(p2) << ") ";
 			}
 
@@ -1317,7 +1315,7 @@ void Refpage::GenerateText_(std::ostream& output, const Refpage::impl_abstract_t
 }
 
 void Refpage::GenerateText_(std::ostream& output, std::string_view text) const {
-	constexpr ctll::fixed_string regex_token = "( *)([^\\w< ]*(?:[\\w'\\-]+|<(code|sub|sup|i|b)>[^ <]{0,64}</\\3>|<pre>.*?</pre>|<.*?>)?[^\\w< \\n]*)(.*)";
+	constexpr ctll::fixed_string regexToken = R"(( *)([^\w< ]*(?:[\w'\-]+|<(code|sub|sup|i|b)>[^ <]{0,64}</\3>|<pre>.*?</pre>|<.*?>)?[^\w< \n]*)(.*))";
 
 	// ignore any spaces at the beginning
 	while (!text.empty() && *text.begin() == ' ') {
@@ -1342,7 +1340,7 @@ void Refpage::GenerateText_(std::ostream& output, std::string_view text) const {
 		}
 
 		// get the first token, its following whitespace, and the rest
-		const auto& [match, spacesMatch, tokenMatch, _, restMatch] = ctre::match<regex_token>(text);
+		const auto& [match, spacesMatch, tokenMatch, _, restMatch] = ctre::match<regexToken>(text);
 
 		if (!match) {
 			std::cout << "@" << _name << ": token generation failed. Left: " << text << std::endl;
