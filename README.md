@@ -13,7 +13,7 @@ To build the GLWR headers and use them, you need:
 - [GLEW](http://glew.sourceforge.net/) 2.1.0. If newer versions become available, GLWR will need to be tested for them.
 - [CMake](https://cmake.org/) 3.13 or higher 
 - [ctre](https://github.com/hanickadot/compile-time-regular-expressions)
-- [RapidXml](http://rapidxml.sourceforge.net/)
+- [pugixml](https://github.com/zeux/pugixml)
 - GCC 9+ with C++20 support
 
 ### Build steps
@@ -28,7 +28,7 @@ To build the GLWR headers and use them, you need:
     - `cmake --build .`  
       If this step fails due to an `-fpermissive` error in a RapidXml file, follow [these](https://stackoverflow.com/a/14114300/1546467) steps.
 
-The headers can now be found in `/build/include/GL`. Find your `glew.h` header file and copy `glwr.h` and `func/*.h` to the same directory.
+The headers can now be found in `/build/include/GL`. Find your `glew.h` header file and copy `glwr.h` and `func/*.h` to the same directory. Alternatively, If you use makefiles as a CMake generator, run `make install`.
 
 ### Options
 Several options can be given in the CMake build step.

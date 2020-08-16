@@ -42,7 +42,10 @@ buildoption(ASSOCIATED_GETS ${ASSOCIATED_GETS})
 buildoption(SEE_ALSO ${SEE_ALSO})
 buildoption(COPYRIGHT ${COPYRIGHT})
 
-SET(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 20)
+
+find_package(ctre REQUIRED)
+find_package(pugixml REQUIRED)
 
 include(ExternalProject)
 ExternalProject_Add(khronos-opengl-refpages
@@ -55,13 +58,26 @@ ExternalProject_Add(khronos-opengl-refpages
 
 add_executable(glwr-gen generator/generator.cpp generator/gl1.h generator/XmlHelper.h generator/Options.h generator/Refpage.cpp generator/Refpage.h)
 add_dependencies(glwr-gen khronos-opengl-refpages)
+target_link_libraries(glwr-gen PRIVATE pugixml)
 
 add_custom_target(create-include-directory ALL
-		COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/include/GL/func)
+		COMMAND ${CMAKE_COMMAND} -E make_directory include/GL/func)
 
 add_custom_command(
-		OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/include/GL/glwr.h
-		COMMAND ${CMAKE_CURRENT_BINARY_DIR}/glwr-gen ${CMAKE_CURRENT_BINARY_DIR}/include/GL ${INCLUDES} ${VERBOSE}
+		OUTPUT include/GL/glwr.h
+		COMMAND ${CMAKE_CURRENT_BINARY_DIR}/glwr-gen include/GL ${INCLUDES} ${VERBOSE}
 		DEPENDS glwr-gen create-include-directory)
 
-add_custom_target(glwr ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/include/GL/glwr.h)
+add_custom_target(glwr-run ALL DEPENDS include/GL/glwr.h)
+
+add_library(glwr INTERFACE)
+add_dependencies(glwr glwr-run)
+
+include(GNUInstallDirs)
+
+install(TARGETS glwr
+		EXPORT glwrConfig)
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include/GL
+		DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(EXPORT glwrConfig DESTINATION share/glwr/cmake)
+export(TARGETS glwr FILE glwrConfig.cmake)

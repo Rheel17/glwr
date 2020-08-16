@@ -4,12 +4,13 @@
 #ifndef GLWR_XMLHELPER_H
 #define GLWR_XMLHELPER_H
 
-#include <rapidxml/rapidxml_print.hpp>
+#include <pugixml.hpp>
 
 #include <string_view>
 
-using Document = rapidxml::xml_document<>;
-using Node = rapidxml::xml_node<>*;
+using Document = pugi::xml_document;
+using Node = pugi::xml_node;
+using Attribute = pugi::xml_attribute;
 
 class NodeNameIterator {
 
@@ -21,7 +22,7 @@ public:
 				node(node) {
 
 			if (node) {
-				name = node->name();
+				name = node.name();
 			}
 		}
 
@@ -47,7 +48,7 @@ public:
 
 		inline IteratorImpl operator++() {
 			// prefix
-			_n = NodeName(_n.node->next_sibling());
+			_n = NodeName(_n.node.next_sibling());
 			return *this;
 		}
 
@@ -72,11 +73,11 @@ public:
 			_n(n) {}
 
 	inline IteratorImpl begin() {
-		return IteratorImpl(_n->first_node());
+		return IteratorImpl(_n.first_child());
 	}
 
 	inline IteratorImpl end() {
-		return IteratorImpl(nullptr);
+		return IteratorImpl(Node());
 	}
 
 private:
@@ -110,6 +111,26 @@ inline bool hasDescendant(Node node, std::string_view descendantName) {
 	}
 
 	return false;
+}
+
+inline Node firstChild(Node parent, std::string_view childName) {
+	for (const auto& [child, name] : NodeNameIterator(parent)) {
+		if (name == childName) {
+			return child;
+		}
+	}
+
+	return Node();
+}
+
+inline Attribute firstAttribute(Node node, std::string_view attributeName) {
+	for (auto attribute : node.attributes()) {
+		if (attribute.name() == attributeName) {
+			return attribute;
+		}
+	}
+
+	return Attribute();
 }
 
 #endif
