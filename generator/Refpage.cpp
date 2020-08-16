@@ -126,9 +126,9 @@ void Refpage::ParseInfo_(Node info) {
 void Refpage::ParseRefmeta_(Node refmeta) {
 	for (const auto& [node, name] : NodeNameIterator(refmeta)) {
 		if (name == "refentrytitle") {
-			Set_("refmeta.refentrytitle", _refmeta.refentrytitle, node.value());
+			Set_("refmeta.refentrytitle", _refmeta.refentrytitle, node.text().as_string());
 		} else if (name == "manvolnum") {
-			Set_("refmeta.manvolnum", _refmeta.manvolnum, node.value());
+			Set_("refmeta.manvolnum", _refmeta.manvolnum, node.text().as_string());
 		} else {
 			std::cout << "@" << _name << " Unknown node: refmeta." << name << std::endl;
 		}
@@ -139,9 +139,9 @@ void Refpage::ParseRefnamediv_(Node refnamediv) {
 	for (const auto& [node, name] : NodeNameIterator(refnamediv)) {
 		if (name == "refdescriptor") {
 			auto& refdescriptor = _refnamediv.refdescriptor.emplace();
-			Set_("refnamediv.refdescriptor", refdescriptor, node.value());
+			Set_("refnamediv.refdescriptor", refdescriptor, node.text().as_string());
 		} else if (name == "refname") {
-			_refnamediv.refnames.emplace_back(node.value());
+			_refnamediv.refnames.emplace_back(node.text().as_string());
 		} else if (name == "refpurpose") {
 			std::string purpose = ParseText_(node);
 			Set_("refnamediv.refpurpose", _refnamediv.refpurpose, purpose);
@@ -201,9 +201,9 @@ void Refpage::ParseRefsect1_(Node refsect1) {
 void Refpage::ParseCopyright_(Node copyright, impl_copyright& value) {
 	for (const auto& [node, name] : NodeNameIterator(copyright)) {
 		if (name == "year") {
-			Set_("info.copyright.year", value.year, node.value());
+			Set_("info.copyright.year", value.year, node.text().as_string());
 		} else if (name == "holder") {
-			Set_("info.copyright.holder", value.holder, node.value());
+			Set_("info.copyright.holder", value.holder, node.text().as_string());
 		} else {
 			std::cout << "@" << _name << " Unknown node: info.copyright." << name << std::endl;
 		}
@@ -241,10 +241,10 @@ void Refpage::ParseFuncprototype_(Node funcprototype, impl_funcprototype& value)
 void Refpage::ParseFuncdef_(Node funcdef, impl_funcdef& value) {
 	for (const auto& [node, name] : NodeNameIterator(funcdef)) {
 		if (name == "") {
-			std::string type = node.value();
+			std::string type = node.text().as_string();
 			Set_("refsynopsisdiv.funcsynopsis.funcprototype.funcdef(value)", value.type, trimr(type));
 		} else if (name == "function") {
-			Set_("refsynopsisdiv.funcsynopsis.funcprototype.funcdef.function", value.function, node.value());
+			Set_("refsynopsisdiv.funcsynopsis.funcprototype.funcdef.function", value.function, node.text().as_string());
 		} else {
 			std::cout << "@" << _name << " Unknown node: refsynopsisdiv.funcsynopsis.funcprototype.function." << name << std::endl;
 		}
@@ -254,10 +254,10 @@ void Refpage::ParseFuncdef_(Node funcdef, impl_funcdef& value) {
 bool Refpage::ParseParamdef_(Node paramdef, impl_paramdef& value) {
 	for (const auto& [node, name] : NodeNameIterator(paramdef)) {
 		if (name == "") {
-			std::string type = node.value();
+			std::string type = node.text().as_string();
 			Set_("refsynopsisdiv.funcsynopsis.funcprototype.paramdef(value)", value.type, trimr(type));
 		} else if (name == "parameter") {
-			Set_("refsynopsisdiv.funcsynopsis.funcprototype.funcdef.parameter", value.parameter, node.value());
+			Set_("refsynopsisdiv.funcsynopsis.funcprototype.funcdef.parameter", value.parameter, node.text().as_string());
 		} else {
 			std::cout << "@" << _name << " Unknown node: refsynopsisdiv.funcsynopsis.funcprototype.paramdef." << name << std::endl;
 		}
@@ -355,7 +355,7 @@ void Refpage::ParseRefsect1Versions_(Node refsect1) {
 						continue;
 					}
 
-					std::string function = functionNode.value();
+					std::string function = functionNode.text().as_string();
 					std::string xpointer = firstAttribute(xiinclude, "xpointer").value();
 
 					const auto&[match, major, minor] = ctre::match<regexVersion>(xpointer);
@@ -485,7 +485,7 @@ std::string Refpage::ParseText_(Node para) {
 	std::stringstream ss;
 
 	for (const auto& [node, name] : NodeNameIterator(para)) {
-		std::string value = node.value();
+		std::string value = node.text().as_string();
 
 		if (name == "") {
 			auto result = ctre::search<regexWhitespace>(value);
@@ -660,7 +660,7 @@ std::string Refpage::ParseProgramlisting_(Node programlisting) {
 
 	for (const auto& [node, name] : NodeNameIterator(programlisting)) {
 		if (name == "") {
-			contents << node.value();
+			contents << node.text().as_string();
 		} else {
 			contents << ParseAbstractTextNode_(node, name);
 		}
@@ -782,7 +782,7 @@ std::string Refpage::ParseInformalequation_(Node informalequation) {
 
 std::string Refpage::ParseAbstractMathNode_(Node node, const std::string_view& name) {
 	if (name == "") {
-		return node.value();
+		return node.text().as_string();
 	} else if (name == "mml:mi") {
 		return ParseMmlmi_(node);
 	} else if (name == "mml:mn") {
@@ -1065,7 +1065,7 @@ void Refpage::ParseParameters_(Node refsect1, impl_refsect_parameters& parameter
 		} else if (name == "title") {
 			Node function = firstChild(node, "function");
 			if (function) {
-				parameters.impl_for_function.emplace(function.value());
+				parameters.impl_for_function.emplace(function.text().as_string());
 			}
 		} else {
 			std::cout << "@" << _name << " Unknown node: refsect1(parameters)." << name << std::endl;
@@ -1101,7 +1101,7 @@ void Refpage::ParseTerm_(Node term, impl_varlistentry& varlistentry) {
 		if (name == "") {
 			continue; /* ignored */
 		} else if (name == "parameter") {
-			varlistentry.terms.emplace_back(node.value());
+			varlistentry.terms.emplace_back(node.text().as_string());
 		} else {
 			std::cout << "@" << _name << " Unknown node: refsect1(parameters).variablelist.varlistentry.term." << name << std::endl;
 		}
@@ -1114,7 +1114,7 @@ void Refpage::ParseDescription_(Node refsect1, impl_refsect_description& descrip
 		if (name == "title") {
 			Node function = firstChild(node, "function");
 			if (function) {
-				description.impl_for_function.emplace(function.value());
+				description.impl_for_function.emplace(function.text().as_string());
 			}
 		}
 	}
