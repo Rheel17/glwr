@@ -50,7 +50,7 @@ find_package(pugixml REQUIRED)
 include(ExternalProject)
 ExternalProject_Add(khronos-opengl-refpages
 		GIT_REPOSITORY https://github.com/KhronosGroup/OpenGL-Refpages.git
-		GIT_TAG master
+		GIT_TAG main
 		SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/opengl-refpages
 		CONFIGURE_COMMAND ""
 		BUILD_COMMAND ""
