@@ -22,6 +22,7 @@ To build the GLWR headers and use them, you need:
     - `cd glwr`
 - Run CMake
     - `mkdir build`
+    - `cd build`
     - `cmake -DCMAKE_BUILD_TYPE=Release .. <options>`  
       *Note: Building with* `-DCMAKE_BUILD_TYPE=Release` *will significantly reduce build times.* 
 - Build
