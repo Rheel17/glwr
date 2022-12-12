@@ -62,6 +62,6 @@ Enable verbose output using `-DVERBOSE=ON`. If `VERBOSE` is turned on, the gener
 Simply `#include <GL/glwr.h>` instead of `GL/glew.h`.
 
 ## License/Copyright
-The GLWR header generator source code is Copyright (c) 2020 Levi van Rheenen. It falls under the MIT license. See `LICENSE.md` for more information.
+The GLWR header generator source code is Copyright (c) 2022 Levi van Rheenen. It falls under the MIT license. See `LICENSE.md` for more information.
 
 The generated header files fall under the licenses of their respective documentation. Go to the [OpenGL Refpages repository](https://github.com/KhronosGroup/OpenGL-Refpages#licenses) for more information.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Levi van Rheenen
+ * Copyright (c) 2022 Levi van Rheenen
  */
 #ifndef MGL_GL1_H
 #define MGL_GL1_H

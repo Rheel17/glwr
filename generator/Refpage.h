@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Levi van Rheenen
+ * Copyright (c) 2022 Levi van Rheenen
  */
 #ifndef GLWR_REFPAGE_H
 #define GLWR_REFPAGE_H
