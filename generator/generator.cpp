@@ -3,8 +3,10 @@
  */
 #include <ctre.hpp>
 
+#include <algorithm>
 #include <cstring>
 #include <fstream>
+#include <unordered_map>
 
 #include "Refpage.h"
 
